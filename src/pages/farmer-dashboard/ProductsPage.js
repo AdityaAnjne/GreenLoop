@@ -187,6 +187,10 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
                     <div className="meta-item">
                       <strong>Price:</strong> ₹{(prod.price ?? 0).toFixed(2)}/kg
                     </div>
+                    <div className="meta-item">
+                      <strong>Retailer ID:</strong>{" "}
+                      {prod.retailerId ?? "Not assigned"}
+                    </div>
                   </div>
 
                   {/* QR Code */}
