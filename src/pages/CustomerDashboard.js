@@ -273,7 +273,7 @@ const CustomerDashboard = () => {
 
   // Fetch this customer's own order history
   const fetchMyOrders = async () => {
-    setOrdersLoading(true);
+    set(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -379,7 +379,7 @@ const CustomerDashboard = () => {
                 isDark ? "bg-slate-800" : "bg-white"
               }`}
             >
-              {ordersLoading ? (
+              {ordersLoading && myOrders.length === 0 ? (
                 <p
                   className={`text-center py-8 ${
                     isDark ? "text-slate-400" : "text-gray-500"
