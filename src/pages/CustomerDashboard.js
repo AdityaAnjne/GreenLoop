@@ -8,6 +8,7 @@ import {
   BadgeCheck,
   X,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import axiosInstance from "../api/axiosInstance";
@@ -300,6 +301,16 @@ const CustomerDashboard = () => {
     fetchMyOrders();
   };
 
+  useEffect(() => {
+    if (!showOrdersModal) return;
+
+    const interval = setInterval(() => {
+      fetchMyOrders();
+    }, 15000); // refresh every 15s while the modal is open
+
+    return () => clearInterval(interval);
+  }, [showOrdersModal]);
+
   // Calculate cart total
   const cartTotalINR = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -341,12 +352,25 @@ const CustomerDashboard = () => {
                     Track your order status
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowOrdersModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-full transition"
-                >
-                  <X size={24} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={fetchMyOrders}
+                    disabled={ordersLoading}
+                    title="Refresh orders"
+                    className="p-2 hover:bg-white/20 rounded-full transition disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={20}
+                      className={ordersLoading ? "animate-spin" : ""}
+                    />
+                  </button>
+                  <button
+                    onClick={() => setShowOrdersModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-full transition"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
               </div>
             </div>
 
