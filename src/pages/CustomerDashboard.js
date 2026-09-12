@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import axiosInstance from "../api/axiosInstance";
+import TrackOrderModal from "./TrackOrderModal";
 
 const formatINR = (price) => {
   return new Intl.NumberFormat("en-IN", {
@@ -37,6 +38,7 @@ const CustomerDashboard = () => {
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [myOrders, setMyOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
 
   // Whitelist of products based on local grocery folder files
   const WHITELIST = [
@@ -481,6 +483,17 @@ const CustomerDashboard = () => {
                           ₹{Number(order.totalAmount || 0).toFixed(2)}
                         </span>
                       </div>
+
+                      <button
+                        onClick={() => setTrackingOrderId(order.id)}
+                        className={`mt-3 w-full text-sm font-medium py-2 rounded-lg border transition-colors ${
+                          isDark
+                            ? "border-emerald-700 text-emerald-400 hover:bg-emerald-900/30"
+                            : "border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                        }`}
+                      >
+                        Track this order
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -488,6 +501,14 @@ const CustomerDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {trackingOrderId && (
+        <TrackOrderModal
+          orderId={trackingOrderId}
+          isDark={isDark}
+          onClose={() => setTrackingOrderId(null)}
+        />
       )}
 
       {/* AI Quality Check Modal */}

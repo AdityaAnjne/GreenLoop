@@ -303,6 +303,95 @@ Order order = orderService.createOrderFromCheckout(
         }
     }
 
+    @GetMapping("/{id}/trace")
+    public ResponseEntity<?> getOrderTrace(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String authHeader) {
+
+        try {
+            String token = authHeader.substring(7);
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
+
+            Order order = orderService.getOrder(id);
+
+            boolean allowed;
+            String lowerRole = role == null ? "" : role.toLowerCase();
+            User caller = userRepository.findByEmail(email).orElse(null);
+
+            switch (lowerRole) {
+                case "admin":
+                    allowed = true;
+                    break;
+                case "customer":
+                    allowed = caller != null
+                            && order.getCustomer() != null
+                            && caller.getId().equals(order.getCustomer().getId());
+                    break;
+                case "retailer":
+                    allowed = caller != null && order.getItems().stream()
+                            .anyMatch(item -> caller.getId().equals(item.getRetailerId()));
+                    break;
+                case "distributor":
+                    allowed = caller != null && order.getItems().stream()
+                            .anyMatch(item -> caller.getId().equals(item.getDistributorId()));
+                    break;
+                default:
+                    allowed = false;
+            }
+
+            if (!allowed) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse("Order not found"));
+            }
+
+            List<OrderItem> visibleItems = order.getItems();
+            if ("retailer".equals(lowerRole) && caller != null) {
+                visibleItems = visibleItems.stream()
+                        .filter(i -> caller.getId().equals(i.getRetailerId()))
+                        .collect(Collectors.toList());
+            } else if ("distributor".equals(lowerRole) && caller != null) {
+                visibleItems = visibleItems.stream()
+                        .filter(i -> caller.getId().equals(i.getDistributorId()))
+                        .collect(Collectors.toList());
+            }
+
+            java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> eventsByItem =
+                    orderService.getTraceForOrder(order);
+
+            List<ItemTraceResponse> items = visibleItems.stream()
+                    .map(item -> buildItemTrace(item, eventsByItem.getOrDefault(item.getId(), new ArrayList<>())))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new OrderTraceResponse(order.getId(), items));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("Order not found"));
+        }
+    }
+
+    private ItemTraceResponse buildItemTrace(OrderItem item, List<com.greenloop.model.OrderItemStatusEvent> events) {
+        String farmerName = null;
+        if (item.getFarmerId() != null) {
+            User farmer = userRepository.findById(item.getFarmerId()).orElse(null);
+            farmerName = farmer != null ? farmer.getName() : null;
+        }
+
+        Double latitude = item.getProduct() != null ? item.getProduct().getLatitude() : null;
+        Double longitude = item.getProduct() != null ? item.getProduct().getLongitude() : null;
+        String productName = item.getProduct() != null ? item.getProduct().getCropType() : null;
+
+        List<TraceEventResponse> timeline = events.stream()
+                .sorted((a, b) -> a.getOccurredAt().compareTo(b.getOccurredAt()))
+                .map(e -> new TraceEventResponse(e.getStatus().toString(), e.getNote(), e.getOccurredAt()))
+                .collect(Collectors.toList());
+
+        return new ItemTraceResponse(item.getId(), productName, farmerName, latitude, longitude,
+                item.getStatus() != null ? item.getStatus().toString() : null, timeline);
+    }
+
     @PutMapping("/{id}/confirm")
     public ResponseEntity<?> confirmOrder(
             @PathVariable Long id,
@@ -589,6 +678,50 @@ Order order = orderService.createOrderFromCheckout(
         public ErrorResponse(String message) {
             this.message = message;
             this.timestamp = LocalDateTime.now();
+        }
+    }
+
+    public static class OrderTraceResponse {
+        public Long orderId;
+        public List<ItemTraceResponse> items;
+
+        public OrderTraceResponse(Long orderId, List<ItemTraceResponse> items) {
+            this.orderId = orderId;
+            this.items = items;
+        }
+    }
+
+    public static class ItemTraceResponse {
+        public Long orderItemId;
+        public String productName;
+        public String farmerName;
+        public Double farmLatitude;
+        public Double farmLongitude;
+        public String currentStatus;
+        public List<TraceEventResponse> timeline;
+
+        public ItemTraceResponse(Long orderItemId, String productName, String farmerName,
+                Double farmLatitude, Double farmLongitude, String currentStatus,
+                List<TraceEventResponse> timeline) {
+            this.orderItemId = orderItemId;
+            this.productName = productName;
+            this.farmerName = farmerName;
+            this.farmLatitude = farmLatitude;
+            this.farmLongitude = farmLongitude;
+            this.currentStatus = currentStatus;
+            this.timeline = timeline;
+        }
+    }
+
+    public static class TraceEventResponse {
+        public String status;
+        public String note;
+        public LocalDateTime occurredAt;
+
+        public TraceEventResponse(String status, String note, LocalDateTime occurredAt) {
+            this.status = status;
+            this.note = note;
+            this.occurredAt = occurredAt;
         }
     }
 }

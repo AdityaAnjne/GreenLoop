@@ -43,6 +43,14 @@ public class OrderService {
     @Autowired
     private RetailerDistributorRepository retailerDistributorRepository;
 
+    @Autowired
+    private com.greenloop.repository.OrderItemStatusEventRepository orderItemStatusEventRepository;
+
+    private void recordEvent(OrderItem item, OrderStatus status, Long actorId, String note) {
+        orderItemStatusEventRepository.save(
+                new com.greenloop.model.OrderItemStatusEvent(item.getId(), status, actorId, note));
+    }
+
     // CHECKOUT FLOW (TRANSACTIONAL)
 
     /**
@@ -143,6 +151,7 @@ public class OrderService {
         for (OrderItem item : orderItems) {
             item.setOrder(savedOrder);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.PLACED, null, "Order placed");
         }
 
         savedOrder.setItems(orderItems);
@@ -203,6 +212,28 @@ public class OrderService {
     }
 
     /**
+     * OrderItem id.
+     */
+    public java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> getTraceForOrder(Order order) {
+        List<Long> itemIds = order.getItems().stream()
+                .map(OrderItem::getId)
+                .collect(Collectors.toList());
+
+        if (itemIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        List<com.greenloop.model.OrderItemStatusEvent> events =
+                orderItemStatusEventRepository.findByOrderItemIdIn(itemIds);
+
+        java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> byItem = new java.util.HashMap<>();
+        for (com.greenloop.model.OrderItemStatusEvent event : events) {
+            byItem.computeIfAbsent(event.getOrderItemId(), k -> new ArrayList<>()).add(event);
+        }
+        return byItem;
+    }
+
+    /**
      * Get single order by ID
      */
     public Order getOrder(Long orderId) throws Exception {
@@ -249,6 +280,7 @@ public class OrderService {
             item.setStatus(OrderStatus.CONFIRMED);
             item.setDistributorId(distributorId);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.CONFIRMED, retailerId, "Confirmed by retailer");
         }
 
         order.recomputeStatus();
@@ -283,6 +315,7 @@ public class OrderService {
         for (OrderItem item : packable) {
             item.setStatus(OrderStatus.PACKED);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.PACKED, distributorId, "Packed for shipment");
         }
 
         order.recomputeStatus();
@@ -316,6 +349,7 @@ public class OrderService {
         for (OrderItem item : shippable) {
             item.setStatus(OrderStatus.SHIPPED);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.SHIPPED, distributorId, "Out for delivery");
         }
 
         order.recomputeStatus();
@@ -349,6 +383,7 @@ public class OrderService {
         for (OrderItem item : deliverable) {
             item.setStatus(OrderStatus.DELIVERED);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.DELIVERED, distributorId, "Delivered");
         }
 
         order.recomputeStatus();
@@ -372,6 +407,7 @@ public class OrderService {
 
             item.setStatus(OrderStatus.CANCELLED);
             orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.CANCELLED, null, "Order cancelled");
 
             System.out.println("[OrderService] Inventory restored after cancel: productId=" +
                     product.getId() + ", quantity=" + product.getQuantity());

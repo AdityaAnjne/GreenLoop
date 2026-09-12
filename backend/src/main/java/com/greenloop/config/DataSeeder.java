@@ -1,6 +1,7 @@
 package com.greenloop.config;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.greenloop.model.Product;
@@ -10,6 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Component
+@Profile("seed")
 public class DataSeeder implements CommandLineRunner {
 
     private final ProductRepository productRepository;
