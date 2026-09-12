@@ -275,7 +275,7 @@ const CustomerDashboard = () => {
 
   // Fetch this customer's own order history
   const fetchMyOrders = async () => {
-    set(true);
+    setOrdersLoading(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) {
