@@ -3,6 +3,7 @@ package com.greenloop.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -86,13 +87,14 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 
     // CONSTRUCTORS
@@ -204,12 +206,18 @@ public class Order {
 
     private static int stageRank(OrderStatus status) {
         switch (status) {
-            case PLACED: return 0;
-            case CONFIRMED: return 1;
-            case PACKED: return 2;
-            case SHIPPED: return 3;
-            case DELIVERED: return 4;
-            default: return 5; // CANCELLED sorts last, but is filtered out above
+            case PLACED:
+                return 0;
+            case CONFIRMED:
+                return 1;
+            case PACKED:
+                return 2;
+            case SHIPPED:
+                return 3;
+            case DELIVERED:
+                return 4;
+            default:
+                return 5; // CANCELLED sorts last, but is filtered out above
         }
     }
 
