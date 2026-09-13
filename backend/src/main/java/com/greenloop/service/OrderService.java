@@ -69,7 +69,9 @@ public class OrderService {
      * @throws Exception if validation fails
      */
     @Transactional
-    public Order createOrderFromCheckout(User customer, List<CheckoutItem> cartItems) throws Exception {
+    public Order createOrderFromCheckout(User customer, List<CheckoutItem> cartItems,
+            String deliveryAddress, Double deliveryLatitude, Double deliveryLongitude,
+            String paymentMethod) throws Exception {
 
         if (cartItems == null || cartItems.isEmpty()) {
             throw new IllegalArgumentException("Cart cannot be empty");
@@ -140,6 +142,19 @@ public class OrderService {
         order.setCustomer(customer);
         order.setTotalAmount(totalAmount);
         order.setStatus(OrderStatus.PLACED);
+        order.setDeliveryAddress(deliveryAddress);
+        order.setDeliveryLatitude(deliveryLatitude);
+        order.setDeliveryLongitude(deliveryLongitude);
+        
+        customer.setDeliveryAddress(deliveryAddress);
+        customer.setDeliveryLatitude(deliveryLatitude);
+        customer.setDeliveryLongitude(deliveryLongitude);
+        userRepository.save(customer);
+        // Only COD is a real, processed payment path right now. Anything
+        // else reaching here (shouldn't happen — frontend only allows COD to
+        // be selected) still falls back to COD rather than silently storing
+        // an unhandled payment state.
+        order.setPaymentMethod("COD".equalsIgnoreCase(paymentMethod) ? "COD" : "COD");
 
         // Save order (triggers @PrePersist: sets createdAt, updatedAt)
         Order savedOrder = orderRepository.save(order);

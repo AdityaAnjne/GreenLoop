@@ -33,6 +33,29 @@ public class UserController {
         return "Welcome to GreenLoop Auth!";
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyProfile(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String email = jwtUtil.extractEmail(token);
+
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new Exception("User not found"));
+            Map<String, Object> profile = new java.util.HashMap<>();
+            profile.put("id", user.getId());
+            profile.put("name", user.getName() != null ? user.getName() : "");
+            profile.put("email", user.getEmail());
+            profile.put("deliveryAddress", user.getDeliveryAddress() != null ? user.getDeliveryAddress() : "");
+            profile.put("deliveryLatitude", user.getDeliveryLatitude());
+            profile.put("deliveryLongitude", user.getDeliveryLongitude());
+
+            return ResponseEntity.ok(profile);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid or expired token"));
+        }
+    }
+
     // Register user with hashed password
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {

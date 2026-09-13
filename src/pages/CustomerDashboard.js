@@ -39,6 +39,8 @@ const CustomerDashboard = () => {
   const [myOrders, setMyOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("COD");
 
   // Whitelist of products based on local grocery folder files
   const WHITELIST = [
@@ -235,8 +237,30 @@ const CustomerDashboard = () => {
     );
   };
 
+  const getDeliveryCoords = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ lat: null, lng: null });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        () => resolve({ lat: null, lng: null }),
+        { timeout: 8000 },
+      );
+    });
+
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+
+    if (!deliveryAddress.trim()) {
+      alert("Please enter a delivery address");
+      return;
+    }
 
     try {
       const token = localStorage.getItem("token");
@@ -245,6 +269,8 @@ const CustomerDashboard = () => {
         return;
       }
 
+      const { lat, lng } = await getDeliveryCoords();
+
       const response = await axiosInstance.post(
         "/api/orders",
         {
@@ -252,6 +278,10 @@ const CustomerDashboard = () => {
             productId: item.id,
             quantity: item.quantity,
           })),
+          deliveryAddress: deliveryAddress.trim(),
+          deliveryLatitude: lat,
+          deliveryLongitude: lng,
+          paymentMethod: paymentMethod,
         },
         {
           headers: {
@@ -312,6 +342,30 @@ const CustomerDashboard = () => {
 
     return () => clearInterval(interval);
   }, [showOrdersModal]);
+
+  // ✅ Pre-fill delivery address from the customer's saved default (empty on
+  // a brand-new account — first order still requires typing it in).
+  useEffect(() => {
+    const loadSavedAddress = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axiosInstance.get("/api/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.data?.deliveryAddress) {
+          setDeliveryAddress(response.data.deliveryAddress);
+        }
+      } catch (err) {
+        // Non-fatal — customer just types their address like normal
+        console.error("Failed to load saved address:", err);
+      }
+    };
+
+    loadSavedAddress();
+  }, []);
 
   // Calculate cart total
   const cartTotalINR = cart.reduce(
@@ -1039,6 +1093,27 @@ const CustomerDashboard = () => {
                     isDark ? "border-slate-600" : "border-gray-200"
                   } border-t`}
                 >
+                  <div className="mb-4">
+                    <label
+                      className={`text-sm font-medium mb-1 block ${
+                        isDark ? "text-slate-300" : "text-gray-700"
+                      }`}
+                    >
+                      Delivery Address
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Flat/House no, Street, City, PIN"
+                      className={`w-full text-sm rounded-lg px-3 py-2 border ${
+                        isDark
+                          ? "bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                      }`}
+                    />
+                  </div>
+
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between text-sm">
                       <span
@@ -1104,11 +1179,54 @@ const CustomerDashboard = () => {
                     </div>
                   </div>
 
+                  <div className="mb-4">
+                    <p
+                      className={`text-sm font-medium mb-2 ${
+                        isDark ? "text-slate-300" : "text-gray-700"
+                      }`}
+                    >
+                      Payment Method
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: "COD", label: "Cash on Delivery", enabled: true },
+                        { id: "UPI", label: "UPI", enabled: false },
+                        { id: "CARD", label: "Card", enabled: false },
+                        { id: "WALLET", label: "Wallet", enabled: false },
+                      ].map((method) => (
+                        <button
+                          key={method.id}
+                          type="button"
+                          disabled={!method.enabled}
+                          onClick={() => method.enabled && setPaymentMethod(method.id)}
+                          className={`relative text-sm font-medium py-2 px-2 rounded-lg border text-left transition-colors ${
+                            !method.enabled
+                              ? isDark
+                                ? "border-slate-700 text-slate-600 bg-slate-800/50 cursor-not-allowed"
+                                : "border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed"
+                              : paymentMethod === method.id
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : isDark
+                              ? "border-slate-600 text-slate-200 hover:border-emerald-600"
+                              : "border-gray-300 text-gray-700 hover:border-emerald-600"
+                          }`}
+                        >
+                          {method.label}
+                          {!method.enabled && (
+                            <span className="absolute top-1 right-1 text-[9px] px-1 rounded bg-amber-500 text-white">
+                              Soon
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <button
                     onClick={handleCheckout}
                     className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-2.5 rounded-lg transition-all duration-200 transform hover:scale-105"
                   >
-                    Checkout
+                    {paymentMethod === "COD" ? "Place Order (Pay on Delivery)" : "Place Order"}
                   </button>
 
                   <p

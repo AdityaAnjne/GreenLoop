@@ -90,7 +90,11 @@ public class OrderController {
 
 Order order = orderService.createOrderFromCheckout(
         customer,
-        serviceItems
+        serviceItems,
+        request.deliveryAddress,
+        request.deliveryLatitude,
+        request.deliveryLongitude,
+        request.paymentMethod
 );
 
 
@@ -557,6 +561,10 @@ Order order = orderService.createOrderFromCheckout(
 
     public static class CheckoutRequest {
         public List<CheckoutItemRequest> items;
+        public String deliveryAddress;
+        public Double deliveryLatitude;
+        public Double deliveryLongitude;
+        public String paymentMethod;
 
         public CheckoutRequest() {}
 

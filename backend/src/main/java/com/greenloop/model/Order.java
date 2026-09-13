@@ -53,6 +53,18 @@ public class Order {
     @Column(name = "distributor_id", nullable = true)
     private Long distributorId;
 
+    @Column(name = "delivery_address", nullable = true, length = 500)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_latitude", nullable = true)
+    private Double deliveryLatitude;
+
+    @Column(name = "delivery_longitude", nullable = true)
+    private Double deliveryLongitude;
+
+    @Column(name = "payment_method", nullable = true, length = 20)
+    private String paymentMethod = "COD";
+
     // ORDER DATA
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -275,6 +287,38 @@ public class Order {
 
     public void setDistributorId(Long distributorId) {
         this.distributorId = distributorId;
+    }
+
+    public String getDeliveryAddress() {
+        return deliveryAddress;
+    }
+
+    public void setDeliveryAddress(String deliveryAddress) {
+        this.deliveryAddress = deliveryAddress;
+    }
+
+    public Double getDeliveryLatitude() {
+        return deliveryLatitude;
+    }
+
+    public void setDeliveryLatitude(Double deliveryLatitude) {
+        this.deliveryLatitude = deliveryLatitude;
+    }
+
+    public Double getDeliveryLongitude() {
+        return deliveryLongitude;
+    }
+
+    public void setDeliveryLongitude(Double deliveryLongitude) {
+        this.deliveryLongitude = deliveryLongitude;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     // UTILITY METHODS

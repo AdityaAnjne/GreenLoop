@@ -52,6 +52,8 @@ public class SecurityConfig {
                     "/api/products/**",
                     "/api/ai/**"
                 ).permitAll()
+                // SECURITY: any logged-in user can read their own profile
+                .requestMatchers("/api/users/me").authenticated()
                 // SECURITY: STRICTLY enforce admin endpoints - ROLE_ADMIN only
                 .requestMatchers("/api/users/all-with-passwords").hasRole("ADMIN")
                 .requestMatchers("/api/users/*/role").hasRole("ADMIN")
