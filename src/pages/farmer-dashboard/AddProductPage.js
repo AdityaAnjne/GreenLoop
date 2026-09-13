@@ -77,6 +77,23 @@ function AddProductPage({ addProduct }) {
     }
   };
 
+  const getFarmLocation = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ lat: null, lng: null });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude.toFixed(6),
+            lng: position.coords.longitude.toFixed(6),
+          }),
+        () => resolve({ lat: null, lng: null }), // permission denied / unavailable
+        { timeout: 8000 },
+      );
+    });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm() || isSubmitting) return;
@@ -84,8 +101,7 @@ function AddProductPage({ addProduct }) {
     setIsSubmitting(true);
 
     try {
-      const lat = (Math.random() * 180 - 90).toFixed(6);
-      const lng = (Math.random() * 360 - 180).toFixed(6);
+      const { lat, lng } = await getFarmLocation();
 
       const savedProduct = await addProductToBackend({
         imageFile: form.imageFile,
