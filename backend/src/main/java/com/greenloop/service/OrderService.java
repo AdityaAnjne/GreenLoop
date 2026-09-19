@@ -410,21 +410,28 @@ public class OrderService {
      * Can be called at any point before delivery
      */
     @Transactional
-    public Order cancelOrder(Long orderId) throws Exception {
+        public Order cancelOrder(Long orderId) throws Exception {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new Exception("Order not found: " + orderId));
 
-        boolean anyItemTooFarAlong = order.getItems().stream()
-                .anyMatch(item -> item.getStatus() == OrderStatus.PACKED
-                        || item.getStatus() == OrderStatus.SHIPPED
-                        || item.getStatus() == OrderStatus.DELIVERED);
+        // Cancel only the items that are still cancellable (PLACED or
+        // CONFIRMED), the same per-item scoping already used everywhere
+        // else in this class. A multi-retailer order shouldn't be locked
+        // entirely just because ONE retailer's item has already moved to
+        // PACKED/SHIPPED/DELIVERED — the other retailer's still-untouched
+        // item should remain cancellable on its own.
+        List<OrderItem> cancellable = order.getItems().stream()
+                .filter(item -> item.getStatus() == OrderStatus.PLACED
+                        || item.getStatus() == OrderStatus.CONFIRMED)
+                .collect(Collectors.toList());
 
-        if (anyItemTooFarAlong) {
+        if (cancellable.isEmpty()) {
             throw new IllegalStateException(
-                    "This order can no longer be cancelled — it has already been packed or shipped");
+                    "This order can no longer be cancelled — every item has already been packed or shipped");
         }
 
-        for (OrderItem item : order.getItems()) {
+        // Restore inventory and mark only the cancellable items cancelled
+        for (OrderItem item : cancellable) {
             Product product = item.getProduct();
             product.setQuantity(product.getQuantity() + item.getQuantity());
             productRepository.save(product);
@@ -437,7 +444,12 @@ public class OrderService {
                     product.getId() + ", quantity=" + product.getQuantity());
         }
 
-        order.cancel();
+        // Recompute the order's overall status from what's left, instead
+        // of forcing it to CANCELLED unconditionally — if some items were
+        // already too far along to cancel, the order's aggregate status
+        // should reflect those still-active items, not falsely show
+        // CANCELLED when part of it is still being fulfilled.
+        order.recomputeStatus();
         return orderRepository.save(order);
     }
 

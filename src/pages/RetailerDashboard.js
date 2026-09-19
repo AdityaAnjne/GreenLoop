@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../context/ThemeContext";
-import { Truck, AlertCircle, BarChart3 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getRetailerInventory, getAllProducts, getAvailableDistributors } from "./api";
 import axiosInstance from "../api/axiosInstance";
 import "../styles/RetailerDashboard.css";

@@ -277,6 +277,31 @@ html[data-theme="light"] .distributor-dashboard .dashboard-table td {
   color: var(--primary-green);
 }
 
+.status-placed {
+  background: var(--bg-light);
+  color: var(--text-heading);
+}
+
+.status-confirmed {
+  background: var(--bg-secondary);
+  color: var(--info);
+}
+
+.status-packed {
+  background: var(--bg-secondary);
+  color: var(--info);
+}
+
+.status-delivered {
+  background: var(--primary-green-light);
+  color: var(--primary-green);
+}
+
+.status-cancelled {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--error);
+}
+
 /* === Action Button Styling === */
 .action-btn {
   padding: 0.5rem 1rem;
