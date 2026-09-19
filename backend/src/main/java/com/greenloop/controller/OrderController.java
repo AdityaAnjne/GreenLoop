@@ -594,6 +594,7 @@ Order order = orderService.createOrderFromCheckout(
         public LocalDateTime createdAt;
         public LocalDateTime updatedAt;
         public List<OrderItemResponse> items;
+        public String deliveryAddress;
 
         public OrderResponse() {}
 
@@ -611,6 +612,7 @@ Order order = orderService.createOrderFromCheckout(
             this.customerName = order.getCustomer() != null ? order.getCustomer().getName() : null;
             this.createdAt = order.getCreatedAt();
             this.updatedAt = order.getUpdatedAt();
+            this.deliveryAddress = order.getDeliveryAddress();
 
             List<OrderItem> allItems = order.getItems();
             List<OrderItem> visible;

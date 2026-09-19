@@ -194,6 +194,7 @@ const DistributorDashboard = () => {
                     <th>Order ID</th>
                     <th>Items</th>
                     <th>Total</th>
+                    <th>Delivery Address</th>
                     <th>Date</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -226,6 +227,9 @@ const DistributorDashboard = () => {
                         </td>
                         <td className="table-id">
                           ₹{Number(order.totalAmount || 0).toFixed(2)}
+                        </td>
+                        <td className="table-muted">
+                          {order.deliveryAddress || "—"}
                         </td>
                         <td className="table-muted">
                           {order.createdAt
