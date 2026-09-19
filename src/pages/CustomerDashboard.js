@@ -333,6 +333,30 @@ const CustomerDashboard = () => {
     fetchMyOrders();
   };
 
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm("Cancel this order? This cannot be undone.")) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to cancel this order");
+        return;
+      }
+
+      await axiosInstance.put(
+        `/api/orders/${orderId}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      fetchMyOrders();
+    } catch (error) {
+      alert(
+        error.response?.data?.message || "Failed to cancel order. Please try again.",
+      );
+    }
+  };
+
   useEffect(() => {
     if (!showOrdersModal) return;
 
@@ -548,6 +572,19 @@ const CustomerDashboard = () => {
                       >
                         Track this order
                       </button>
+
+                      {(order.status === "PLACED" || order.status === "CONFIRMED") && (
+                        <button
+                          onClick={() => handleCancelOrder(order.id)}
+                          className={`mt-2 w-full text-sm font-medium py-2 rounded-lg border transition-colors ${
+                            isDark
+                              ? "border-red-800 text-red-400 hover:bg-red-900/30"
+                              : "border-red-300 text-red-600 hover:bg-red-50"
+                          }`}
+                        >
+                          Cancel order
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

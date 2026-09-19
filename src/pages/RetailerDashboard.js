@@ -402,6 +402,13 @@ const RetailerDashboard = () => {
                         isDark ? "text-white" : "text-gray-900"
                       }`}
                     >
+                      Delivery Address
+                    </th>
+                    <th
+                      className={`px-6 py-4 text-left text-sm font-semibold ${
+                        isDark ? "text-white" : "text-gray-900"
+                      }`}
+                    >
                       Date
                     </th>
                     <th
@@ -474,6 +481,13 @@ const RetailerDashboard = () => {
                           }`}
                         >
                           ₹{Number(order.totalAmount || 0).toFixed(2)}
+                        </td>
+                        <td
+                          className={`px-6 py-4 text-sm ${
+                            isDark ? "text-slate-300" : "text-gray-600"
+                          }`}
+                        >
+                          {order.deliveryAddress || "—"}
                         </td>
                         <td
                           className={`px-6 py-4 text-sm ${

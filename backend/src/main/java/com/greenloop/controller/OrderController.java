@@ -553,6 +553,9 @@ Order order = orderService.createOrderFromCheckout(
             Order order = orderService.cancelOrder(id);
             return ResponseEntity.ok(new OrderResponse(order));
 
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to cancel order: " + e.getMessage()));

@@ -414,7 +414,16 @@ public class OrderService {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new Exception("Order not found: " + orderId));
 
-        // Restore inventory and mark every item cancelled
+        boolean anyItemTooFarAlong = order.getItems().stream()
+                .anyMatch(item -> item.getStatus() == OrderStatus.PACKED
+                        || item.getStatus() == OrderStatus.SHIPPED
+                        || item.getStatus() == OrderStatus.DELIVERED);
+
+        if (anyItemTooFarAlong) {
+            throw new IllegalStateException(
+                    "This order can no longer be cancelled — it has already been packed or shipped");
+        }
+
         for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
             product.setQuantity(product.getQuantity() + item.getQuantity());
