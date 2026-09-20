@@ -45,6 +45,7 @@ public class Product {
     // store, since both lead to this same product record.
     private Double qualityScore;
     private String qualityAnalysis;
+    private Integer freshnessPercent;
 
     // Getters and Setters
     public Long getId() {
@@ -190,5 +191,13 @@ public class Product {
 
     public void setQualityAnalysis(String qualityAnalysis) {
         this.qualityAnalysis = qualityAnalysis;
+    }
+
+    public Integer getFreshnessPercent() {
+        return freshnessPercent;
+    }
+
+    public void setFreshnessPercent(Integer freshnessPercent) {
+        this.freshnessPercent = freshnessPercent;
     }
 }

@@ -138,9 +138,12 @@ const CustomerDashboard = () => {
       id: product.id,
       name: product.name || product.cropType || "Unknown",
       price: product.price ?? 2.5,
-      rating: 4.8,
-      reviews: Math.floor(Math.random() * 200) + 100,
-      freshness: Math.floor(Math.random() * 30) + 70 + "%",
+      // Real AI-derived values, not random fakes. Products listed
+      // before this feature existed (or where the AI call failed at
+      // listing time) simply have no score — shown honestly as "Not yet
+      // rated" rather than backfilling a made-up number.
+      rating: product.qualityScore ?? null,
+      freshness: product.freshnessPercent != null ? `${product.freshnessPercent}%` : null,
       displayIcon: getProductLogo(product),
       imageUrl: product.imageUrl || null,
     }));

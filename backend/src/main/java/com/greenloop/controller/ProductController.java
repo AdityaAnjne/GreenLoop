@@ -247,6 +247,7 @@ public class ProductController {
             @RequestParam("retailerId") String retailerIdParam,
             @RequestParam(value = "qualityScore", required = false) String qualityScoreParam,
             @RequestParam(value = "qualityAnalysis", required = false) String qualityAnalysis,
+            @RequestParam(value = "freshnessPercent", required = false) String freshnessPercentParam,
             @RequestHeader("Authorization") String authHeader) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -292,6 +293,7 @@ public class ProductController {
             product.setQualityScore(parseNullableDouble(qualityScoreParam));
             product.setQualityAnalysis(
                     (qualityAnalysis != null && !qualityAnalysis.isBlank()) ? qualityAnalysis : null);
+            product.setFreshnessPercent(parseNullableInt(freshnessPercentParam));
             product.setImageUrl(imageUrl);
             product.setFarmerId(farmer.getId());
             product.setPrice(Double.parseDouble(price));
@@ -328,6 +330,17 @@ public class ProductController {
         }
         try {
             return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer parseNullableInt(String value) {
+        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim())) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
         } catch (NumberFormatException e) {
             return null;
         }

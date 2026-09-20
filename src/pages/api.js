@@ -241,6 +241,9 @@ export const addProductToBackend = async (productData) => {
     if (productData.qualityAnalysis) {
       formData.append("qualityAnalysis", productData.qualityAnalysis);
     }
+    if (productData.freshnessPercent !== null && productData.freshnessPercent !== undefined) {
+      formData.append("freshnessPercent", productData.freshnessPercent);
+    }
     formData.append("price", productData.price);
     formData.append("quantity", productData.quantity);
     // NEW: Farmer explicitly chooses which retailer in their network gets this product
