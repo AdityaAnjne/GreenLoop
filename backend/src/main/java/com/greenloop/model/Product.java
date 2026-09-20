@@ -39,6 +39,13 @@ public class Product {
     private Double price;
     private Integer quantity;
 
+    // AI quality assessment, captured once at listing time (not
+    // post-purchase) so a customer can see it BEFORE buying — either
+    // browsing online or scanning the product's QR code in a physical
+    // store, since both lead to this same product record.
+    private Double qualityScore;
+    private String qualityAnalysis;
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -167,5 +174,21 @@ public class Product {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public Double getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(Double qualityScore) {
+        this.qualityScore = qualityScore;
+    }
+
+    public String getQualityAnalysis() {
+        return qualityAnalysis;
+    }
+
+    public void setQualityAnalysis(String qualityAnalysis) {
+        this.qualityAnalysis = qualityAnalysis;
     }
 }

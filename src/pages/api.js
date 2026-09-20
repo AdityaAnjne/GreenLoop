@@ -226,8 +226,21 @@ export const addProductToBackend = async (productData) => {
     formData.append("soilType", productData.soilType);
     formData.append("pesticides", productData.pesticides);
     formData.append("harvestDate", productData.harvestDate);
-    formData.append("latitude", productData.latitude);
-    formData.append("longitude", productData.longitude);
+    // Only append when we actually have a real value — appending a JS
+    // null directly turns it into the literal text "null", which the
+    // backend would otherwise try (and fail) to parse as a number.
+    if (productData.latitude !== null && productData.latitude !== undefined) {
+      formData.append("latitude", productData.latitude);
+    }
+    if (productData.longitude !== null && productData.longitude !== undefined) {
+      formData.append("longitude", productData.longitude);
+    }
+    if (productData.qualityScore !== null && productData.qualityScore !== undefined) {
+      formData.append("qualityScore", productData.qualityScore);
+    }
+    if (productData.qualityAnalysis) {
+      formData.append("qualityAnalysis", productData.qualityAnalysis);
+    }
     formData.append("price", productData.price);
     formData.append("quantity", productData.quantity);
     // NEW: Farmer explicitly chooses which retailer in their network gets this product

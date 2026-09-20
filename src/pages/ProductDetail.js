@@ -71,6 +71,23 @@ function ProductDetail() {
           </div>
         </div>
 
+        {product.qualityScore != null && (
+          <div className="info-row">
+            <span className="label">AI Quality Score</span>
+            <span className="value">
+              {product.qualityScore.toFixed(1)} / 5.0
+              {product.qualityAnalysis && (
+                <>
+                  <br />
+                  <span style={{ fontSize: "0.85em", opacity: 0.8 }}>
+                    {product.qualityAnalysis}
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
+        )}
+
         <div className="verification-badge">Verified Product - Trusted Source</div>
       </div>
     </div>

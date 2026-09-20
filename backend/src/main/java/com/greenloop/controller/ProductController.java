@@ -240,11 +240,13 @@ public class ProductController {
             @RequestParam("soilType") String soilType,
             @RequestParam("pesticides") String pesticides,
             @RequestParam("harvestDate") String harvestDate,
-            @RequestParam("latitude") String latitude,
-            @RequestParam("longitude") String longitude,
+            @RequestParam(value = "latitude", required = false) String latitude,
+            @RequestParam(value = "longitude", required = false) String longitude,
             @RequestParam("price") String price,
             @RequestParam("quantity") String quantity,
             @RequestParam("retailerId") String retailerIdParam,
+            @RequestParam(value = "qualityScore", required = false) String qualityScoreParam,
+            @RequestParam(value = "qualityAnalysis", required = false) String qualityAnalysis,
             @RequestHeader("Authorization") String authHeader) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -281,8 +283,15 @@ public class ProductController {
             product.setSoilType(soilType);
             product.setPesticides(pesticides);
             product.setHarvestDate(harvestDate);
-            product.setLatitude(Double.parseDouble(latitude));
-            product.setLongitude(Double.parseDouble(longitude));
+            // Tolerant parsing: geolocation permission may have been
+            // denied on the farmer's device, in which case the frontend
+            // sends nothing (or, previously, the literal text "null") for
+            // these fields rather than a real number.
+            product.setLatitude(parseNullableDouble(latitude));
+            product.setLongitude(parseNullableDouble(longitude));
+            product.setQualityScore(parseNullableDouble(qualityScoreParam));
+            product.setQualityAnalysis(
+                    (qualityAnalysis != null && !qualityAnalysis.isBlank()) ? qualityAnalysis : null);
             product.setImageUrl(imageUrl);
             product.setFarmerId(farmer.getId());
             product.setPrice(Double.parseDouble(price));
@@ -313,6 +322,17 @@ public class ProductController {
      * @param cropType
      * @return
      */
+    private Double parseNullableDouble(String value) {
+        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim())) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private Long determineRetailerForProduct(Long farmerId, String cropType) {
 
         List<User> retailers = userRepository.findAll();

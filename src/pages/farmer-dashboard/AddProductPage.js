@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { addProductToBackend, getAvailableRetailers } from "../api";
+import { analyzeImageWithAI } from "../../services/aiService";
 import "../../styles/addProduct.css";
 
 function AddProductPage({ addProduct }) {
@@ -103,6 +104,22 @@ function AddProductPage({ addProduct }) {
     try {
       const { lat, lng } = await getFarmLocation();
 
+      // AI quality check happens HERE — at listing time, on the actual
+      // photo the farmer is uploading — not as a disconnected post-purchase
+      // tool. The result becomes a permanent, visible part of the product,
+      // seen by anyone who views it (online) or scans its QR code
+      // (in person), before they decide to buy.
+      let qualityScore = null;
+      let qualityAnalysis = null;
+      try {
+        const aiResult = await analyzeImageWithAI(form.imageFile);
+        qualityScore = aiResult?.rating ?? null;
+        qualityAnalysis = aiResult?.analysis ?? null;
+      } catch (aiError) {
+        // Non-fatal — listing still proceeds without a quality score
+        console.error("AI quality check failed:", aiError);
+      }
+
       const savedProduct = await addProductToBackend({
         imageFile: form.imageFile,
         cropType: form.cropType,
@@ -114,6 +131,8 @@ function AddProductPage({ addProduct }) {
         price: form.price,
         quantity: form.quantity,
         retailerId: form.retailerId,
+        qualityScore: qualityScore,
+        qualityAnalysis: qualityAnalysis,
       });
 
       // Keep local state in sync too, in case the dashboard doesn't refetch immediately
