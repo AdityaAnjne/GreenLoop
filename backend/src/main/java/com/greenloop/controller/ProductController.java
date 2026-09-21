@@ -248,6 +248,9 @@ public class ProductController {
             @RequestParam(value = "qualityScore", required = false) String qualityScoreParam,
             @RequestParam(value = "qualityAnalysis", required = false) String qualityAnalysis,
             @RequestParam(value = "freshnessPercent", required = false) String freshnessPercentParam,
+            @RequestParam(value = "aiHealthBenefit", required = false) String aiHealthBenefit,
+            @RequestParam(value = "aiDescription", required = false) String aiDescription,
+            @RequestParam(value = "aiShelfLife", required = false) String aiShelfLife,
             @RequestHeader("Authorization") String authHeader) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -294,6 +297,9 @@ public class ProductController {
             product.setQualityAnalysis(
                     (qualityAnalysis != null && !qualityAnalysis.isBlank()) ? qualityAnalysis : null);
             product.setFreshnessPercent(parseNullableInt(freshnessPercentParam));
+            product.setAiHealthBenefit((aiHealthBenefit != null && !aiHealthBenefit.isBlank()) ? aiHealthBenefit : null);
+            product.setAiDescription((aiDescription != null && !aiDescription.isBlank()) ? aiDescription : null);
+            product.setAiShelfLife((aiShelfLife != null && !aiShelfLife.isBlank()) ? aiShelfLife : null);
             product.setImageUrl(imageUrl);
             product.setFarmerId(farmer.getId());
             product.setPrice(Double.parseDouble(price));

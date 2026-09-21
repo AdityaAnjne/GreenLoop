@@ -112,11 +112,17 @@ function AddProductPage({ addProduct }) {
       let qualityScore = null;
       let qualityAnalysis = null;
       let freshnessPercent = null;
+      let aiHealthBenefit = null;
+      let aiDescription = null;
+      let aiShelfLife = null;
       try {
         const aiResult = await analyzeImageWithAI(form.imageFile);
         qualityScore = aiResult?.rating ?? null;
         qualityAnalysis = aiResult?.analysis ?? null;
         freshnessPercent = aiResult?.freshnessPercent ?? null;
+        aiHealthBenefit = aiResult?.healthBenefit ?? null;
+        aiDescription = aiResult?.productDescription ?? null;
+        aiShelfLife = aiResult?.shelfLifeEstimate ?? null;
       } catch (aiError) {
         // Non-fatal — listing still proceeds without a quality score
         console.error("AI quality check failed:", aiError);
@@ -136,6 +142,9 @@ function AddProductPage({ addProduct }) {
         qualityScore: qualityScore,
         qualityAnalysis: qualityAnalysis,
         freshnessPercent: freshnessPercent,
+        aiHealthBenefit: aiHealthBenefit,
+        aiDescription: aiDescription,
+        aiShelfLife: aiShelfLife,
       });
 
       // Keep local state in sync too, in case the dashboard doesn't refetch immediately

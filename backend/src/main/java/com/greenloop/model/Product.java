@@ -46,6 +46,9 @@ public class Product {
     private Double qualityScore;
     private String qualityAnalysis;
     private Integer freshnessPercent;
+    private String aiHealthBenefit;
+    private String aiDescription;
+    private String aiShelfLife;
 
     // Getters and Setters
     public Long getId() {
@@ -199,5 +202,29 @@ public class Product {
 
     public void setFreshnessPercent(Integer freshnessPercent) {
         this.freshnessPercent = freshnessPercent;
+    }
+
+    public String getAiHealthBenefit() {
+        return aiHealthBenefit;
+    }
+
+    public void setAiHealthBenefit(String aiHealthBenefit) {
+        this.aiHealthBenefit = aiHealthBenefit;
+    }
+
+    public String getAiDescription() {
+        return aiDescription;
+    }
+
+    public void setAiDescription(String aiDescription) {
+        this.aiDescription = aiDescription;
+    }
+
+    public String getAiShelfLife() {
+        return aiShelfLife;
+    }
+
+    public void setAiShelfLife(String aiShelfLife) {
+        this.aiShelfLife = aiShelfLife;
     }
 }

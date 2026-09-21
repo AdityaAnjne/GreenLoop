@@ -63,14 +63,18 @@ public class GeminiService {
                         "responseMimeType", "application/json",
                         "responseSchema", Map.of(
                                 "type", "OBJECT",
-                                "properties", Map.of(
-                                        "productName", Map.of("type", "STRING"),
-                                        "freshnessStatus", Map.of("type", "STRING"),
-                                        "overallQuality", Map.of("type", "STRING"),
-                                        "confidence", Map.of("type", "NUMBER", "format", "float"),
-                                        "justification", Map.of("type", "STRING")
-                                ),
-                                "propertyOrdering", List.of("productName", "freshnessStatus", "overallQuality", "confidence", "justification")
+                                "properties", Map.ofEntries(
+                                Map.entry("productName", Map.of("type", "STRING")),
+                                Map.entry("freshnessStatus", Map.of("type", "STRING")),
+                                Map.entry("overallQuality", Map.of("type", "STRING")),
+                                Map.entry("confidence", Map.of("type", "NUMBER", "format", "float")),
+                                Map.entry("justification", Map.of("type", "STRING")),
+                                Map.entry("healthBenefit", Map.of("type", "STRING")),
+                                Map.entry("productDescription", Map.of("type", "STRING")),
+                                Map.entry("shelfLifeEstimate", Map.of("type", "STRING"))
+                        ),
+                        "propertyOrdering", List.of("productName", "freshnessStatus", "overallQuality", "confidence",
+                                "justification", "healthBenefit", "productDescription", "shelfLifeEstimate")
                         )
                 )
         );
@@ -107,6 +111,9 @@ public class GeminiService {
             String overallQuality = modelJson.path("overallQuality").asText("Unknown");
             double confidenceScore = modelJson.path("confidence").asDouble(0.75);
             String justification = modelJson.path("justification").asText("No justification provided.");
+            String healthBenefit = modelJson.path("healthBenefit").asText(null);
+            String productDescription = modelJson.path("productDescription").asText(null);
+            String shelfLifeEstimate = modelJson.path("shelfLifeEstimate").asText(null);
 
             double rating = qualityToRating(overallQuality);
             boolean consumable = isConsumable(overallQuality);
@@ -120,7 +127,10 @@ public class GeminiService {
                     consumable,
                     justification,
                     confidence,
-                    freshnessPercent
+                    freshnessPercent,
+                    healthBenefit,
+                    productDescription,
+                    shelfLifeEstimate
             );
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to parse Gemini response", ex);
@@ -132,6 +142,10 @@ public class GeminiService {
         return "Analyze the provided image of a " + safeProduct + " for its quality. " +
                 "Determine its freshness (e.g., Fresh, Stale, Ripe), assign a quality grade (e.g., A, B, C, or D), " +
                 "and provide a brief justification. Give an estimated confidence score between 0.5 and 1.0. " +
+                "Also identify what this produce item actually is, and provide: one short sentence on its main " +
+                "health benefit, one short 1-2 sentence customer-facing description of the produce (how it's " +
+                "typically used/eaten), and a realistic estimated shelf life for fresh produce of this type " +
+                "(e.g. '5-7 days', '2-3 weeks'). " +
                 "Respond ONLY with a JSON object following this schema.";
     }
 
@@ -176,7 +190,10 @@ public class GeminiService {
             boolean consumable,
             String analysis,
             int confidence,
-            int freshnessPercent
+            int freshnessPercent,
+            String healthBenefit,
+            String productDescription,
+            String shelfLifeEstimate
     ) {
     }
 }

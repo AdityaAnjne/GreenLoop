@@ -244,6 +244,15 @@ export const addProductToBackend = async (productData) => {
     if (productData.freshnessPercent !== null && productData.freshnessPercent !== undefined) {
       formData.append("freshnessPercent", productData.freshnessPercent);
     }
+    if (productData.aiHealthBenefit) {
+      formData.append("aiHealthBenefit", productData.aiHealthBenefit);
+    }
+    if (productData.aiDescription) {
+      formData.append("aiDescription", productData.aiDescription);
+    }
+    if (productData.aiShelfLife) {
+      formData.append("aiShelfLife", productData.aiShelfLife);
+    }
     formData.append("price", productData.price);
     formData.append("quantity", productData.quantity);
     // NEW: Farmer explicitly chooses which retailer in their network gets this product

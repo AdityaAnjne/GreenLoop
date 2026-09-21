@@ -34,11 +34,11 @@ const CustomerDashboard = () => {
 
   const [cart, setCart] = useState([]);
   const [wishlist, setWishlist] = useState([]);
-  const [showAIModal, setShowAIModal] = useState(false);
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [myOrders, setMyOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [detailsProduct, setDetailsProduct] = useState(null);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("COD");
 
@@ -85,6 +85,136 @@ const CustomerDashboard = () => {
       .trim();
 
     return WHITELIST.some((key) => productName.includes(key));
+  };
+
+  const PRODUCT_DETAILS = {
+    onion: {
+      healthBenefit: "Supports heart health and boosts immunity",
+      description: "A kitchen staple used in countless dishes — can be sautéed, roasted, grilled, or eaten raw in salads.",
+      shelfLife: "7-10 days",
+    },
+    tomato: {
+      healthBenefit: "Rich in antioxidants, supports skin and heart health",
+      description: "Versatile and juicy, perfect for curries, salads, sauces, or eating fresh.",
+      shelfLife: "5-7 days",
+    },
+    potato: {
+      healthBenefit: "Good source of potassium and vitamin C",
+      description: "A versatile staple that can be boiled, mashed, roasted, or fried.",
+      shelfLife: "2-3 weeks",
+    },
+    carrot: {
+      healthBenefit: "High in beta-carotene, supports eye health",
+      description: "Crunchy and naturally sweet, great raw, roasted, or in soups and salads.",
+      shelfLife: "2-3 weeks",
+    },
+    banana: {
+      healthBenefit: "Good source of potassium and quick energy",
+      description: "A naturally sweet, ready-to-eat fruit, perfect any time of day.",
+      shelfLife: "3-5 days",
+    },
+    apple: {
+      healthBenefit: "High in fiber, supports digestion",
+      description: "Crisp and refreshing, great eaten whole or added to salads.",
+      shelfLife: "2-4 weeks",
+    },
+    mango: {
+      healthBenefit: "Rich in vitamin A and C",
+      description: "Sweet and juicy, best enjoyed fresh or blended into smoothies.",
+      shelfLife: "4-7 days",
+    },
+    strawberry: {
+      healthBenefit: "High in vitamin C and antioxidants",
+      description: "Sweet and delicate, best eaten fresh or added to desserts.",
+      shelfLife: "2-3 days",
+    },
+    grapes: {
+      healthBenefit: "Contains antioxidants that support heart health",
+      description: "Sweet, refreshing, and easy to snack on straight from the bunch.",
+      shelfLife: "5-7 days",
+    },
+    orange: {
+      healthBenefit: "Excellent source of vitamin C",
+      description: "Juicy and tangy, great for snacking or fresh juice.",
+      shelfLife: "1-2 weeks",
+    },
+    corn: {
+      healthBenefit: "Good source of fiber and B vitamins",
+      description: "Sweet and starchy, great boiled, grilled, or roasted.",
+      shelfLife: "3-5 days",
+    },
+    cucumber: {
+      healthBenefit: "Hydrating and low in calories",
+      description: "Crisp and refreshing, ideal for salads or as a light snack.",
+      shelfLife: "5-7 days",
+    },
+    pepper: {
+      healthBenefit: "Rich in vitamin C and antioxidants",
+      description: "Adds color and crunch to stir-fries, salads, and curries.",
+      shelfLife: "1-2 weeks",
+    },
+    chilli: {
+      healthBenefit: "Contains capsaicin, may boost metabolism",
+      description: "Adds heat and flavor to curries and everyday cooking.",
+      shelfLife: "1-2 weeks",
+    },
+    broccoli: {
+      healthBenefit: "High in fiber, vitamin C, and vitamin K",
+      description: "A nutrient-dense vegetable, great steamed, roasted, or stir-fried.",
+      shelfLife: "5-7 days",
+    },
+    avocado: {
+      healthBenefit: "Rich in healthy fats and fiber",
+      description: "Creamy and versatile, perfect for salads, toast, or guacamole.",
+      shelfLife: "3-5 days",
+    },
+    peas: {
+      healthBenefit: "Good source of plant protein and fiber",
+      description: "Sweet and tender, great in curries, rice dishes, or as a side.",
+      shelfLife: "3-5 days",
+    },
+    lettuce: {
+      healthBenefit: "Low calorie, hydrating, and rich in vitamin K",
+      description: "Crisp leafy greens, ideal as a salad base or sandwich filler.",
+      shelfLife: "5-7 days",
+    },
+    radish: {
+      healthBenefit: "Low in calories, good source of vitamin C",
+      description: "Crunchy and peppery, great raw in salads or pickled.",
+      shelfLife: "1-2 weeks",
+    },
+    wheat: {
+      healthBenefit: "Good source of complex carbohydrates and fiber",
+      description: "A dietary staple, ground into flour for breads and everyday cooking.",
+      shelfLife: "Several months (dry storage)",
+    },
+    basmati: {
+      healthBenefit: "Low glycemic index compared to other rice varieties",
+      description: "Long-grain, aromatic rice, a staple for everyday meals.",
+      shelfLife: "Several months (dry storage)",
+    },
+  };
+
+  const DEFAULT_PRODUCT_DETAILS = {
+    healthBenefit: "Fresh, farm-sourced produce",
+    description: "Sourced directly from local farmers for freshness and quality.",
+    shelfLife: "Best consumed within a few days of delivery",
+  };
+
+  const getProductDetails = (product) => {
+    // Priority: real AI-generated content for THIS product → static
+    // per-crop lookup (for older products) → honest generic fallback.
+    if (product.aiHealthBenefit || product.aiDescription || product.aiShelfLife) {
+      return {
+        healthBenefit: product.aiHealthBenefit || DEFAULT_PRODUCT_DETAILS.healthBenefit,
+        description: product.aiDescription || DEFAULT_PRODUCT_DETAILS.description,
+        shelfLife: product.aiShelfLife || DEFAULT_PRODUCT_DETAILS.shelfLife,
+      };
+    }
+
+    const name = (product.cropType || product.name || "").toLowerCase();
+    const key = Object.keys(PRODUCT_DETAILS).find((k) => name.includes(k));
+    return key ? PRODUCT_DETAILS[key] : DEFAULT_PRODUCT_DETAILS;
   };
 
   // Product emoji mapping. This helps future developers.
@@ -138,12 +268,18 @@ const CustomerDashboard = () => {
       id: product.id,
       name: product.name || product.cropType || "Unknown",
       price: product.price ?? 2.5,
-      // Real AI-derived values, not random fakes. Products listed
-      // before this feature existed (or where the AI call failed at
-      // listing time) simply have no score — shown honestly as "Not yet
-      // rated" rather than backfilling a made-up number.
-      rating: product.qualityScore ?? null,
+      // Rating is DERIVED from freshness (freshness% ÷ 100 × 5), not a
+      // separate AI number — so the stars and the freshness badge always
+      // agree with each other instead of potentially telling two slightly
+      // different stories about the same product. Products with no AI
+      // assessment yet show neither, rather than a made-up number.
+      rating: product.freshnessPercent != null ? (product.freshnessPercent / 100) * 5 : null,
       freshness: product.freshnessPercent != null ? `${product.freshnessPercent}%` : null,
+      shortDescription: product.qualityAnalysis
+        ? product.qualityAnalysis.length > 80
+          ? product.qualityAnalysis.slice(0, 80).trim() + "..."
+          : product.qualityAnalysis
+        : null,
       displayIcon: getProductLogo(product),
       imageUrl: product.imageUrl || null,
     }));
@@ -189,13 +325,6 @@ const CustomerDashboard = () => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
-
-  useEffect(() => {
-    const handleAIModalTrigger = () => setShowAIModal(true);
-    window.addEventListener("openAIQualityCheck", handleAIModalTrigger);
-    return () =>
-      window.removeEventListener("openAIQualityCheck", handleAIModalTrigger);
-  }, []);
 
   const addToCart = (product) => {
     // Use displayIcon for cart item
@@ -605,107 +734,93 @@ const CustomerDashboard = () => {
         />
       )}
 
-      {/* AI Quality Check Modal */}
-      {showAIModal && (
+      {detailsProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className={`rounded-3xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all ${
-              isDark ? "bg-slate-800" : "bg-white"
+            className={`rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto ${
+              isDark ? "bg-slate-800 text-white" : "bg-white text-gray-900"
             }`}
           >
-            <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-6 text-white">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-2xl font-bold flex items-center gap-2">
-                    🤖 AI Quality Check
-                  </h3>
-                  <p className="text-emerald-50 mt-1 text-sm">
-                    Advanced Quality Assurance
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAIModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-full transition"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+            <div className="flex justify-between items-start p-6 pb-4">
+              <h3 className="text-xl font-bold">{detailsProduct.name} - Product Details</h3>
+              <button
+                onClick={() => setDetailsProduct(null)}
+                className="p-1 rounded-full hover:bg-black/10"
+              >
+                <X size={22} />
+              </button>
             </div>
-            <div className={`p-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
-              <p
-                className={`mb-4 font-medium ${
-                  isDark ? "text-slate-300" : "text-gray-700"
-                }`}
-              >
-                Our AI analyzes:
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2
-                    className="text-emerald-500 flex-shrink-0 mt-0.5"
-                    size={20}
-                  />
-                  <p className={isDark ? "text-slate-300" : "text-gray-700"}>
-                    Product freshness indicators
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2
-                    className="text-emerald-500 flex-shrink-0 mt-0.5"
-                    size={20}
-                  />
-                  <p className={isDark ? "text-slate-300" : "text-gray-700"}>
-                    Organic certification validity
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2
-                    className="text-emerald-500 flex-shrink-0 mt-0.5"
-                    size={20}
-                  />
-                  <p className={isDark ? "text-slate-300" : "text-gray-700"}>
-                    Farm traceability data
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2
-                    className="text-emerald-500 flex-shrink-0 mt-0.5"
-                    size={20}
-                  />
-                  <p className={isDark ? "text-slate-300" : "text-gray-700"}>
-                    Harvest date verification
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2
-                    className="text-emerald-500 flex-shrink-0 mt-0.5"
-                    size={20}
-                  />
-                  <p className={isDark ? "text-slate-300" : "text-gray-700"}>
-                    Transportation conditions
-                  </p>
-                </div>
-              </div>
-              <div
-                className={`mt-6 p-4 rounded-xl border ${
-                  isDark
-                    ? "bg-emerald-900/30 border-emerald-700 text-emerald-200"
-                    : "bg-emerald-50 border-emerald-200 text-emerald-900"
-                }`}
-              >
-                <p className="text-emerald-900/80 dark:text-emerald-200 font-semibold text-center">
-                  ✓ Upload a product image for instant AI verification!
+
+            <div className="px-6 pb-6 space-y-5 text-sm">
+              <div>
+                <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  Health Benefits
+                </p>
+                <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  {getProductDetails(detailsProduct).healthBenefit}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setShowAIModal(false);
-                  navigate("/ai-quality-check");
-                }}
-                className="w-full mt-6 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-3 rounded-xl transition"
+
+              <div>
+                <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  Description
+                </p>
+                <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  {getProductDetails(detailsProduct).description}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    Unit
+                  </p>
+                  <p className={isDark ? "text-slate-400" : "text-gray-600"}>1 kg</p>
+                </div>
+                <div>
+                  <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    Shelf Life
+                  </p>
+                  <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                    {getProductDetails(detailsProduct).shelfLife}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  Country of Origin
+                </p>
+                <p className={isDark ? "text-slate-400" : "text-gray-600"}>India</p>
+              </div>
+
+              <div>
+                <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  Return Policy
+                </p>
+                <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  Only replacement is offered, within 48 hours of delivery, if the item
+                  is found to be of poor quality, damaged, or incorrect.
+                </p>
+              </div>
+
+              <div>
+                <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  Customer Care
+                </p>
+                <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                  support@greenloop.app
+                </p>
+              </div>
+
+              <div
+                className={`text-xs pt-3 border-t ${
+                  isDark ? "border-slate-700 text-slate-500" : "border-gray-200 text-gray-400"
+                }`}
               >
-                Start AI Verification
-              </button>
+                Disclaimer: Every effort is made to maintain the accuracy of this
+                information. Actual product may vary slightly.
+              </div>
             </div>
           </div>
         </div>
@@ -904,51 +1019,76 @@ const CustomerDashboard = () => {
                     {/* Product Info */}
                     <div className="p-6">
                       <h4
-                        className={`text-lg font-bold mb-2 ${
+                        className={`text-lg font-bold mb-1 ${
                           isDark ? "text-white" : "text-gray-900"
                         }`}
                       >
                         {product.name}
                       </h4>
 
-                      {/* Freshness Badge */}
-                      <div className="mb-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-sm font-semibold ${
-                              isDark ? "text-slate-300" : "text-gray-700"
-                            }`}
-                          >
-                            Freshness
-                          </span>
-                          <span className="bg-green-100 text-green-900 px-2 py-1 rounded text-xs font-bold">
-                            {product.freshness}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Rating */}
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={16}
-                              className={
-                                i < Math.floor(product.rating)
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }
-                            />
-                          ))}
-                        </div>
-                        <span
-                          className={`text-sm ${
-                            isDark ? "text-slate-400" : "text-gray-600"
+                      {product.shortDescription && (
+                        <p
+                          className={`text-xs mb-2 ${
+                            isDark ? "text-slate-400" : "text-gray-500"
                           }`}
                         >
-                          ({product.reviews})
-                        </span>
+                          {product.shortDescription}
+                        </p>
+                      )}
+
+                      {/* Freshness Badge - only shown when the AI actually
+                          assessed this product; no fake fallback number */}
+                      {product.freshness && (
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-sm font-semibold ${
+                                isDark ? "text-slate-300" : "text-gray-700"
+                              }`}
+                            >
+                              Freshness
+                            </span>
+                            <span className="bg-green-100 text-green-900 px-2 py-1 rounded text-xs font-bold">
+                              {product.freshness}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rating - real AI quality score out of 5 */}
+                      <div className="flex items-center gap-2 mb-4">
+                        {product.rating != null ? (
+                          <>
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  size={16}
+                                  className={
+                                    i < Math.round(product.rating)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
+                                  }
+                                />
+                              ))}
+                            </div>
+                            <span
+                              className={`text-sm ${
+                                isDark ? "text-slate-400" : "text-gray-600"
+                              }`}
+                            >
+                              {product.rating.toFixed(1)}
+                            </span>
+                          </>
+                        ) : (
+                          <span
+                            className={`text-sm italic ${
+                              isDark ? "text-slate-500" : "text-gray-400"
+                            }`}
+                          >
+                            Not yet rated
+                          </span>
+                        )}
                       </div>
 
                       {/* Price */}
@@ -977,6 +1117,17 @@ const CustomerDashboard = () => {
                         className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-2 rounded-lg transition-all duration-200 transform hover:scale-105"
                       >
                         Buy Now
+                      </button>
+
+                      <button
+                        onClick={() => setDetailsProduct(product)}
+                        className={`w-full mt-2 text-sm font-medium py-2 rounded-lg border transition-colors ${
+                          isDark
+                            ? "border-slate-600 text-slate-300 hover:bg-slate-700/50"
+                            : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        View Details
                       </button>
                     </div>
                   </div>
