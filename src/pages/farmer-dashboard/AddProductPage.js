@@ -115,24 +115,44 @@ function AddProductPage({ addProduct }) {
       let aiHealthBenefit = null;
       let aiDescription = null;
       let aiShelfLife = null;
-      // Real AI call only — no silent fake fallback. If Gemini is
-      // temporarily unavailable (happens occasionally on the free tier),
-      // the farmer is told honestly rather than shown an indistinguishable
-      // fake quality score.
+      // AI quality check is now a REQUIRED gate, not an optional
+      // enhancement — a product cannot be listed at all if the AI check
+      // either fails technically OR runs successfully but judges the
+      // product unfit for sale (consumable: false). This intentionally
+      // means a temporary AI outage blocks new listings until it recovers
+      // (the backend already retries transient failures once before
+      // giving up, which covers most momentary blips).
+      let aiResult;
       try {
-        const aiResult = await analyzeImageWithAI(form.imageFile);
-        qualityScore = aiResult?.rating ?? null;
-        qualityAnalysis = aiResult?.analysis ?? null;
-        freshnessPercent = aiResult?.freshnessPercent ?? null;
-        aiHealthBenefit = aiResult?.healthBenefit ?? null;
-        aiDescription = aiResult?.productDescription ?? null;
-        aiShelfLife = aiResult?.shelfLifeEstimate ?? null;
+        aiResult = await analyzeImageWithAI(form.imageFile);
       } catch (aiError) {
         console.error("AI quality check failed:", aiError);
-        alert(
-          "AI quality check is temporarily unavailable, so this product will be listed without a quality score. You can edit it later once the AI service is back.",
-        );
+        setErrors((prev) => ({
+          ...prev,
+          submit:
+            "AI quality check is currently unavailable, so this product cannot be listed right now. Please try again in a few minutes.",
+        }));
+        setIsSubmitting(false);
+        return;
       }
+
+      if (aiResult?.consumable === false) {
+        setErrors((prev) => ({
+          ...prev,
+          submit: `This product did not pass the AI quality check and cannot be listed. AI feedback: "${
+            aiResult.analysis || "Quality below acceptable threshold."
+          }"`,
+        }));
+        setIsSubmitting(false);
+        return;
+      }
+
+      qualityScore = aiResult?.rating ?? null;
+      qualityAnalysis = aiResult?.analysis ?? null;
+      freshnessPercent = aiResult?.freshnessPercent ?? null;
+      aiHealthBenefit = aiResult?.healthBenefit ?? null;
+      aiDescription = aiResult?.productDescription ?? null;
+      aiShelfLife = aiResult?.shelfLifeEstimate ?? null;
 
       const savedProduct = await addProductToBackend({
         imageFile: form.imageFile,
