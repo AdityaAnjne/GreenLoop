@@ -81,19 +81,38 @@ public class GeminiService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                endpoint,
-                HttpMethod.POST,
-                new HttpEntity<>(payload, headers),
-                String.class
-        );
+        // Gemini's free tier occasionally returns a transient 503
+        // ("currently experiencing high demand") that clears up within a
+        // few seconds. One short retry turns a would-be failure into a
+        // success in the common case, instead of forcing every momentary
+        // blip to fall back to no quality score at all.
+        ResponseEntity<String> response = callGeminiWithRetry(endpoint, requestEntity, 2);
 
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new IllegalStateException("Gemini API request failed with status: " + response.getStatusCode());
         }
 
         return mapResponse(product, response.getBody());
+    }
+
+    private ResponseEntity<String> callGeminiWithRetry(String endpoint,
+            HttpEntity<Map<String, Object>> requestEntity, int attemptsRemaining) {
+        try {
+            return restTemplate.exchange(endpoint, HttpMethod.POST, requestEntity, String.class);
+        } catch (org.springframework.web.client.HttpServerErrorException ex) {
+            boolean retryable = ex.getStatusCode().value() == 503 || ex.getStatusCode().value() == 429;
+            if (retryable && attemptsRemaining > 0) {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return callGeminiWithRetry(endpoint, requestEntity, attemptsRemaining - 1);
+            }
+            throw ex;
+        }
     }
 
     private GeminiQualityResponse mapResponse(String product, String rawBody) {

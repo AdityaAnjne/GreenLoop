@@ -122,22 +122,26 @@ export const analyzeImageWithAI = async (file) => {
     return mockAnalyzeImage(file);
   }
 
-  try {
-    const base64Image = await fileToBase64(file);
-    const response = await fetch(AI_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product: file.name, base64Image }),
-    });
+  const base64Image = await fileToBase64(file);
+  const response = await fetch(AI_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product: file.name, base64Image }),
+  });
 
-    if (!response.ok) {
-      throw new Error(`AI service error: ${response.status}`);
+  if (!response.ok) {
+    // Surface the backend's real error message instead of just the
+    // status code, and let the failure propagate to the caller — no more
+    // silently substituting fake mock data for a real AI failure.
+    let detail = `status ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.message) detail = errorBody.message;
+    } catch {
+      // response wasn't JSON, keep the status-code fallback
     }
-
-    const payload = await response.json();
-    return payload;
-  } catch (error) {
-    console.error("AI analysis failed, using mock response:", error);
-    return mockAnalyzeImage(file);
+    throw new Error(`AI service error: ${detail}`);
   }
+
+  return response.json();
 };

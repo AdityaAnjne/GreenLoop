@@ -35,6 +35,11 @@ public class AiController {
         } catch (IllegalStateException ex) {
             return ResponseEntity.internalServerError().body(Map.of("message", ex.getMessage()));
         } catch (Exception ex) {
+            // Log server-side too — previously these exceptions were only
+            // ever visible by inspecting the failed request's response body
+            // in the browser, never in Render's own logs.
+            System.err.println("[AiController] AI analysis failed: " + ex.getMessage());
+            ex.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                     "message", "AI analysis failed: " + ex.getMessage()
             ));

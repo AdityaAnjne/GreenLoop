@@ -115,6 +115,10 @@ function AddProductPage({ addProduct }) {
       let aiHealthBenefit = null;
       let aiDescription = null;
       let aiShelfLife = null;
+      // Real AI call only — no silent fake fallback. If Gemini is
+      // temporarily unavailable (happens occasionally on the free tier),
+      // the farmer is told honestly rather than shown an indistinguishable
+      // fake quality score.
       try {
         const aiResult = await analyzeImageWithAI(form.imageFile);
         qualityScore = aiResult?.rating ?? null;
@@ -124,8 +128,10 @@ function AddProductPage({ addProduct }) {
         aiDescription = aiResult?.productDescription ?? null;
         aiShelfLife = aiResult?.shelfLifeEstimate ?? null;
       } catch (aiError) {
-        // Non-fatal — listing still proceeds without a quality score
         console.error("AI quality check failed:", aiError);
+        alert(
+          "AI quality check is temporarily unavailable, so this product will be listed without a quality score. You can edit it later once the AI service is back.",
+        );
       }
 
       const savedProduct = await addProductToBackend({
