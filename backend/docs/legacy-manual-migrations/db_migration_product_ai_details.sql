@@ -1,4 +1,0 @@
-ALTER TABLE products
-ADD COLUMN ai_health_benefit VARCHAR(500) NULL,
-ADD COLUMN ai_description VARCHAR(500) NULL,
-ADD COLUMN ai_shelf_life VARCHAR(100) NULL;
