@@ -39,6 +39,7 @@ const CustomerDashboard = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [detailsProduct, setDetailsProduct] = useState(null);
+  const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("COD");
 
@@ -734,6 +735,87 @@ const CustomerDashboard = () => {
         />
       )}
 
+      {showWishlistModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className={`rounded-3xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col ${
+              isDark ? "bg-slate-800" : "bg-white"
+            }`}
+          >
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-6 text-white flex-shrink-0 flex justify-between items-start">
+              <div>
+                <h3 className="text-2xl font-bold">My Wishlist</h3>
+                <p className="text-emerald-50 mt-1 text-sm">
+                  {wishlist.length} saved item{wishlist.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWishlistModal(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className={`p-6 overflow-y-auto ${isDark ? "bg-slate-800" : "bg-white"}`}>
+              {wishlist.length === 0 ? (
+                <div className="text-center py-8">
+                  <Heart
+                    size={40}
+                    className={`mx-auto mb-3 ${isDark ? "text-slate-600" : "text-gray-300"}`}
+                  />
+                  <p className={isDark ? "text-slate-400" : "text-gray-500"}>
+                    Your wishlist is empty. Tap the heart on any product to save it here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {wishlist.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-4 rounded-xl border p-3 ${
+                        isDark ? "border-slate-700 bg-slate-700/30" : "border-gray-200 bg-gray-50"
+                      }`}
+                    >
+                      <div className="w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center text-3xl bg-emerald-50 flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          item.displayIcon || "🥬"
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                          {item.name}
+                        </p>
+                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                          {formatINR(item.price)}/kg
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          addToCart(item);
+                          toggleWishlist(item);
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        Add to Cart
+                      </button>
+                      <button
+                        onClick={() => toggleWishlist(item)}
+                        className={isDark ? "text-red-500" : "text-red-600"}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {detailsProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
@@ -853,16 +935,29 @@ const CustomerDashboard = () => {
                 Fresh produce from local farms
               </p>
             </div>
-            <button
-              onClick={openOrdersModal}
-              className={`px-4 py-2 rounded-xl font-semibold transition ${
-                isDark
-                  ? "bg-slate-700 text-white hover:bg-slate-600"
-                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              }`}
-            >
-              My Orders
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWishlistModal(true)}
+                className={`px-4 py-2 rounded-xl font-semibold transition flex items-center gap-2 ${
+                  isDark
+                    ? "bg-slate-700 text-white hover:bg-slate-600"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+              >
+                <Heart size={18} />
+                Wishlist ({wishlist.length})
+              </button>
+              <button
+                onClick={openOrdersModal}
+                className={`px-4 py-2 rounded-xl font-semibold transition ${
+                  isDark
+                    ? "bg-slate-700 text-white hover:bg-slate-600"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+              >
+                My Orders
+              </button>
+            </div>
           </div>
         </div>
       </header>
