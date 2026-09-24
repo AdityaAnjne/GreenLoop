@@ -29,7 +29,7 @@ public class GeminiService {
                          @Value("${gemini.model:gemini-2.5-flash}") String model) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofSeconds(10))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .setReadTimeout(Duration.ofSeconds(60))
                 .build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
