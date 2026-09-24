@@ -102,7 +102,12 @@ public class GeminiService {
         try {
             return restTemplate.exchange(endpoint, HttpMethod.POST, requestEntity, String.class);
         } catch (org.springframework.web.client.HttpServerErrorException ex) {
-            boolean retryable = ex.getStatusCode().value() == 503 || ex.getStatusCode().value() == 429;
+            // 503 = temporary overload, worth a quick retry.
+            // 429 = quota/rate limit — retrying won't help within the same
+            // window, so fail immediately instead of wasting time (and,
+            // on a hard daily quota, wasting one of very few remaining
+            // requests) on an attempt guaranteed to fail the same way.
+            boolean retryable = ex.getStatusCode().value() == 503;
             if (retryable && attemptsRemaining > 0) {
                 try {
                     Thread.sleep(1500);
@@ -111,6 +116,10 @@ public class GeminiService {
                 }
                 return callGeminiWithRetry(endpoint, requestEntity, attemptsRemaining - 1);
             }
+            throw ex;
+        } catch (org.springframework.web.client.HttpClientErrorException ex) {
+            // 429 lands here (it's a 4xx client error, not 5xx server
+            // error) — never retried, fails straight through.
             throw ex;
         }
     }
