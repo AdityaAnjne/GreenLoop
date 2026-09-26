@@ -38,8 +38,13 @@ public class GeminiService {
 
     // TEMPORARY DIAGNOSTIC — see AiController.listModels()
     public ResponseEntity<String> listAvailableModels() {
-        String endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey;
-        return restTemplate.exchange(endpoint, HttpMethod.GET, HttpEntity.EMPTY, String.class);
+        try {
+            String endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey;
+            return restTemplate.exchange(endpoint, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.internalServerError().body("List models failed: " + ex.getMessage());
+        }
     }
 
     public GeminiQualityResponse analyzeImage(String product, String base64Image) {
