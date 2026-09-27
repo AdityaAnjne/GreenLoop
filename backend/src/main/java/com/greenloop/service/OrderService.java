@@ -87,6 +87,11 @@ public class OrderService {
 
         for (CheckoutItem cartItem : cartItems) {
 
+            if (cartItem.quantity > 10) {
+                throw new IllegalArgumentException(
+                        "Maximum order quantity is 10kg per item. Requested: " + cartItem.quantity + "kg");
+            }
+
             // Get product from database
             Product product = productRepository.findById(cartItem.productId)
                     .orElseThrow(() -> new Exception("Product not found: " + cartItem.productId));

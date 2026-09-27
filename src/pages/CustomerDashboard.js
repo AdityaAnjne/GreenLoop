@@ -39,6 +39,18 @@ const CustomerDashboard = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [detailsProduct, setDetailsProduct] = useState(null);
+  const [cardQuantities, setCardQuantities] = useState({});
+  const MAX_ORDER_QTY = 10;
+
+  const getCardQty = (productId) => cardQuantities[productId] || 1;
+
+  const adjustCardQty = (productId, delta) => {
+    setCardQuantities((prev) => {
+      const current = prev[productId] || 1;
+      const next = Math.min(MAX_ORDER_QTY, Math.max(1, current + delta));
+      return { ...prev, [productId]: next };
+    });
+  };
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("COD");
@@ -327,20 +339,19 @@ const CustomerDashboard = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  const addToCart = (product) => {
-    // Use displayIcon for cart item
+  const addToCart = (product, requestedQty = 1) => {
     const icon = product.displayIcon || getProductLogo(product);
     const existingItem = cart.find((item) => item.id === product.id);
     if (existingItem) {
       setCart(
         cart.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.min(MAX_ORDER_QTY, item.quantity + requestedQty) }
             : item,
         ),
       );
     } else {
-      setCart([...cart, { ...product, image: icon, quantity: 1 }]);
+      setCart([...cart, { ...product, image: icon, quantity: Math.min(MAX_ORDER_QTY, requestedQty) }]);
     }
   };
 
@@ -361,7 +372,7 @@ const CustomerDashboard = () => {
       cart
         .map((item) => {
           if (item.id === productId) {
-            const newQuantity = item.quantity + change;
+            const newQuantity = Math.min(MAX_ORDER_QTY, item.quantity + change);
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
           }
           return item;
@@ -1206,12 +1217,41 @@ const CustomerDashboard = () => {
                         </p>
                       </div>
 
+                      {/* Quantity stepper - max 10kg per order */}
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        <button
+                          onClick={() => adjustCardQty(product.id, -1)}
+                          disabled={getCardQty(product.id) <= 1}
+                          className={`w-8 h-8 rounded-md border font-bold transition ${
+                            isDark
+                              ? "bg-slate-600 text-emerald-400 border-emerald-600 disabled:opacity-30"
+                              : "bg-white text-emerald-700 border-emerald-500 disabled:opacity-30"
+                          }`}
+                        >
+                          −
+                        </button>
+                        <span className={`w-12 text-center font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                          {getCardQty(product.id)} kg
+                        </span>
+                        <button
+                          onClick={() => adjustCardQty(product.id, 1)}
+                          disabled={getCardQty(product.id) >= MAX_ORDER_QTY}
+                          className={`w-8 h-8 rounded-md border font-bold transition ${
+                            isDark
+                              ? "bg-slate-600 text-emerald-400 border-emerald-600 disabled:opacity-30"
+                              : "bg-white text-emerald-700 border-emerald-500 disabled:opacity-30"
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+
                       {/* Buy Button */}
                       <button
-                        onClick={() => addToCart(product)}
+                        onClick={() => addToCart(product, getCardQty(product.id))}
                         className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-2 rounded-lg transition-all duration-200 transform hover:scale-105"
                       >
-                        Buy Now
+                        Add to Cart
                       </button>
 
                       <button

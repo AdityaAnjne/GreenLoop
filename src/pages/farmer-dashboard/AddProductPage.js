@@ -12,7 +12,6 @@ function AddProductPage({ addProduct }) {
     pesticides: "",
     harvestDate: "",
     price: "",
-    quantity: "",
     imageFile: null,
     retailerId: "",
   });
@@ -51,8 +50,6 @@ function AddProductPage({ addProduct }) {
     if (!form.harvestDate) newErrors.harvestDate = "Harvest date is required";
     if (!form.price || Number(form.price) <= 0)
       newErrors.price = "Enter a valid price";
-    if (!form.quantity || Number(form.quantity) <= 0)
-      newErrors.quantity = "Enter a valid quantity";
     if (!form.imageFile) newErrors.image = "Product image is required";
     // NEW: Retailer selection is mandatory — backend enforces this too
     if (!form.retailerId) newErrors.retailerId = "Please select a retailer";
@@ -163,7 +160,7 @@ function AddProductPage({ addProduct }) {
         latitude: lat,
         longitude: lng,
         price: form.price,
-        quantity: form.quantity,
+        quantity: "9999",
         retailerId: form.retailerId,
         qualityScore: qualityScore,
         qualityAnalysis: qualityAnalysis,
@@ -334,25 +331,6 @@ function AddProductPage({ addProduct }) {
                 )}
               </div>
 
-              <div className="form-group">
-                <label htmlFor="quantity" className="required">
-                  Quantity (kg)
-                </label>
-                <input
-                  type="number"
-                  id="quantity"
-                  name="quantity"
-                  min="0"
-                  step="1"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  className={errors.quantity ? "error" : ""}
-                  placeholder="e.g., 100"
-                />
-                {errors.quantity && (
-                  <span className="error-text">{errors.quantity}</span>
-                )}
-              </div>
             </div>
 
             <div className="form-section">
