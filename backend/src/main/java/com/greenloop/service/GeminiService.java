@@ -36,17 +36,6 @@ public class GeminiService {
         this.model = model;
     }
 
-    // TEMPORARY DIAGNOSTIC — see AiController.listModels()
-    public ResponseEntity<String> listAvailableModels() {
-        try {
-            String endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey;
-            return restTemplate.exchange(endpoint, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return ResponseEntity.internalServerError().body("List models failed: " + ex.getMessage());
-        }
-    }
-
     public GeminiQualityResponse analyzeImage(String product, String base64Image) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Gemini API key is not configured. Set GEMINI_API_KEY in the environment.");

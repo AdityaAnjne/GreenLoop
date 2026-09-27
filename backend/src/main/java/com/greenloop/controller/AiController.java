@@ -21,11 +21,6 @@ public class AiController {
         this.geminiService = geminiService;
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/list-models")
-    public ResponseEntity<?> listModels() {
-        return geminiService.listAvailableModels();
-    }
-
     @PostMapping("/quality-check")
     public ResponseEntity<?> analyzeImage(@RequestBody AnalyzeRequest request) {
         if (request == null || request.base64Image() == null || request.base64Image().isBlank()) {
