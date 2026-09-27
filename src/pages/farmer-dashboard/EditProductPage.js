@@ -15,7 +15,6 @@ function EditProductPage({ products, onUpdateProduct }) {
     pesticides: "",
     harvestDate: "",
     price: "",
-    quantity: "",
     imageFile: null,
     imageUrl: "",
     retailerId: "",
@@ -52,7 +51,6 @@ function EditProductPage({ products, onUpdateProduct }) {
         pesticides: productToEdit.pesticides,
         harvestDate: productToEdit.harvestDate,
         price: productToEdit.price ?? "",
-        quantity: productToEdit.quantity ?? "",
         imageFile: null,
         imageUrl: productToEdit.imageUrl,
         retailerId: productToEdit.retailerId ? String(productToEdit.retailerId) : "",
@@ -80,7 +78,7 @@ function EditProductPage({ products, onUpdateProduct }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await onUpdateProduct(Number(id), form);
+      await onUpdateProduct(Number(id), { ...form, quantity: "9999" });
       alert("Product updated successfully!");
       navigate("/farmer-dashboard");
     } catch (err) {
@@ -196,21 +194,6 @@ function EditProductPage({ products, onUpdateProduct }) {
                   value={form.price}
                   onChange={handleChange}
                   placeholder="e.g., 2.50"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="quantity" className="required">
-                  Quantity (kg)
-                </label>
-                <input
-                  type="number"
-                  id="quantity"
-                  name="quantity"
-                  min="0"
-                  step="1"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  placeholder="e.g., 100"
                 />
               </div>
             </div>

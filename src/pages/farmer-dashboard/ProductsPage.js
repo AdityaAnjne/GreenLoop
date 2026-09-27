@@ -182,9 +182,6 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
                       <strong>Harvest:</strong> {prod.harvestDate}
                     </div>
                     <div className="meta-item">
-                      <strong>Quantity:</strong> {prod.quantity ?? 0} kg
-                    </div>
-                    <div className="meta-item">
                       <strong>Price:</strong> ₹{(prod.price ?? 0).toFixed(2)}/kg
                     </div>
                     <div className="meta-item">
