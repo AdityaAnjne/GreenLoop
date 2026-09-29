@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API, logoutUser, getAllProducts } from "./api";
-import { Users, Package, TrendingUp, Eye, EyeOff, LogOut } from "lucide-react";
+import { Users, Package, TrendingUp, LogOut } from "lucide-react";
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -11,7 +11,6 @@ const AdminDashboard = () => {
   const [error, setError] = useState(null);
   const [editingRoleId, setEditingRoleId] = useState(null);
   const [newRole, setNewRole] = useState("");
-  const [showPasswordIds, setShowPasswordIds] = useState([]);
   const [activeTab, setActiveTab] = useState("users");
   const navigate = useNavigate();
 
@@ -79,55 +78,9 @@ const AdminDashboard = () => {
       setError(null);
       const storedUser = JSON.parse(localStorage.getItem("user"));
 
-      const buildMockUsers = () => {
-        const current = storedUser || {
-          id: "demo-admin",
-          name: "Demo Admin",
-          email: "admin@demo.local",
-          role: "admin",
-        };
-        return [
-          {
-            id: current.id,
-            name: current.name || "Admin",
-            email: current.email,
-            role: "admin",
-            password: "••••••••",
-          },
-          {
-            id: "u-1",
-            name: "Farmer One",
-            email: "farmer1@demo.local",
-            role: "farmer",
-            password: "••••••••",
-          },
-          {
-            id: "u-2",
-            name: "Distributor One",
-            email: "distributor1@demo.local",
-            role: "distributor",
-            password: "••••••••",
-          },
-          {
-            id: "u-3",
-            name: "Retailer One",
-            email: "retailer1@demo.local",
-            role: "retailer",
-            password: "••••••••",
-          },
-          {
-            id: "u-4",
-            name: "Customer One",
-            email: "customer1@demo.local",
-            role: "customer",
-            password: "••••••••",
-          },
-        ];
-      };
-
       if (!storedUser || storedUser.role.toLowerCase() !== "admin") {
         console.warn(
-          "ADMIN CHECK FAILED: User is not logged in or not an Admin."
+          "ADMIN CHECK FAILED: User is not logged in or not an Admin.",
         );
         alert("Access denied. Admins only.");
         logoutUser();
@@ -137,20 +90,19 @@ const AdminDashboard = () => {
 
       // If this is a demo/offline login (no token), skip backend and use mock data
       if (!storedUser.token) {
-        console.info("No token found. Using mock users for offline/demo mode.");
-        setUsers(buildMockUsers());
+        setError("Authentication token is missing. Please log in again.");
         setLoading(false);
         return;
       }
 
       try {
-        const response = await API.get("/all-with-passwords");
+        const response = await API.get("/all");
         setUsers(response.data);
       } catch (error) {
         console.error(
           "Admin Fetch Error Details:",
           error.message,
-          error.response
+          error.response,
         );
 
         if (error.response) {
@@ -165,19 +117,19 @@ const AdminDashboard = () => {
             navigate("/login");
           } else if (error.response.status >= 500) {
             setError(
-              `Server Error (${error.response.status}): Check your Spring Boot logs.`
+              `Server Error (${error.response.status}): Check your Spring Boot logs.`,
             );
           } else {
             setError(
               error.response.data?.message ||
-                `HTTP Error ${error.response.status}`
+                `HTTP Error ${error.response.status}`,
             );
           }
         } else {
-          // Network/connection issue: fall back to mock users instead of blocking the UI
-          console.warn("Backend unreachable; showing mock users.");
-          setUsers(buildMockUsers());
-          setError(null);
+          console.error("Backend unreachable.");
+          setError(
+            "Unable to connect to the backend. Please make sure the Spring Boot server is running.",
+          );
         }
       } finally {
         setLoading(false);
@@ -224,19 +176,13 @@ const AdminDashboard = () => {
     try {
       await API.put(`/${userId}/role`, { role: newRole });
       setUsers(
-        users.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
       );
       setEditingRoleId(null);
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.message || "Failed to update role.");
     }
-  };
-
-  const togglePassword = (id) => {
-    setShowPasswordIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
   };
 
   if (loading) {
@@ -368,9 +314,6 @@ const AdminDashboard = () => {
                       Role
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Password
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Actions
                     </th>
                   </tr>
@@ -379,7 +322,7 @@ const AdminDashboard = () => {
                   {users.length === 0 && !error ? (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="5"
                         className="px-6 py-8 text-center text-gray-500"
                       >
                         No users found.
@@ -419,38 +362,18 @@ const AdminDashboard = () => {
                                 user.role?.toLowerCase() === "admin"
                                   ? "bg-red-100 text-red-900"
                                   : user.role?.toLowerCase() === "farmer"
-                                  ? "bg-amber-100 text-amber-900"
-                                  : user.role?.toLowerCase() === "distributor"
-                                  ? "bg-blue-100 text-blue-900"
-                                  : user.role?.toLowerCase() === "retailer"
-                                  ? "bg-purple-100 text-purple-900"
-                                  : "bg-green-100 text-green-900"
+                                    ? "bg-amber-100 text-amber-900"
+                                    : user.role?.toLowerCase() === "distributor"
+                                      ? "bg-blue-100 text-blue-900"
+                                      : user.role?.toLowerCase() === "retailer"
+                                        ? "bg-purple-100 text-purple-900"
+                                        : "bg-green-100 text-green-900"
                               }`}
                             >
                               {user.role?.charAt(0).toUpperCase() +
                                 user.role?.slice(1)}
                             </span>
                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {showPasswordIds.includes(user.id)
-                                ? user.password?.substring(0, 8) + "..."
-                                : "••••••••"}
-                            </code>
-                            <button
-                              onClick={() => togglePassword(user.id)}
-                              className="p-1 hover:bg-gray-100 rounded transition"
-                              title="Toggle password visibility"
-                            >
-                              {showPasswordIds.includes(user.id) ? (
-                                <EyeOff size={16} className="text-gray-600" />
-                              ) : (
-                                <Eye size={16} className="text-gray-600" />
-                              )}
-                            </button>
-                          </div>
                         </td>
                         <td className="px-6 py-4">
                           {editingRoleId === user.id ? (

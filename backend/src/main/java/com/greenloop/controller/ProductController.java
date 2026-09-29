@@ -16,9 +16,13 @@ import com.greenloop.service.ImageUploadService;
 import com.greenloop.service.ProductService;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import com.greenloop.service.GeminiService;
+import com.greenloop.service.GeminiService.GeminiQualityResponse;
 
 /**
  * SECURITY-CRITICAL: Product Controller
@@ -50,6 +54,9 @@ public class ProductController {
 
     @Autowired
     private FarmerRetailerRepository farmerRetailerRepository;
+
+    @Autowired
+    private GeminiService geminiService;
 
     /**
      * PUBLIC: Get all products
@@ -245,83 +252,228 @@ public class ProductController {
             @RequestParam("price") String price,
             @RequestParam("quantity") String quantity,
             @RequestParam("retailerId") String retailerIdParam,
-            @RequestParam(value = "qualityScore", required = false) String qualityScoreParam,
-            @RequestParam(value = "qualityAnalysis", required = false) String qualityAnalysis,
-            @RequestParam(value = "freshnessPercent", required = false) String freshnessPercentParam,
-            @RequestParam(value = "aiHealthBenefit", required = false) String aiHealthBenefit,
-            @RequestParam(value = "aiDescription", required = false) String aiDescription,
-            @RequestParam(value = "aiShelfLife", required = false) String aiShelfLife,
             @RequestHeader("Authorization") String authHeader) {
+
         try {
+            // ---------------------------------------------------------
+            // 1. Validate authentication
+            // ---------------------------------------------------------
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("message", "Missing authorization header"));
             }
 
+            String token = authHeader.substring(7);
+
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
+
+            // ---------------------------------------------------------
+            // 2. Only FARMER can create products
+            // ---------------------------------------------------------
+            if (!"farmer".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Only farmers can add products"));
+            }
+
+            User farmer = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // ---------------------------------------------------------
+            // 3. Validate image
+            // ---------------------------------------------------------
+            if (image == null || image.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Product image is required"));
+            }
+
+            if (image.getContentType() == null
+                    || !image.getContentType().startsWith("image/")) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Only image files are allowed"));
+            }
+
+            // ---------------------------------------------------------
+            // 4. Validate retailer
+            // ---------------------------------------------------------
             Long retailerId;
+
             try {
                 retailerId = Long.parseLong(retailerIdParam);
             } catch (NumberFormatException e) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Please select a retailer before submitting"));
+                        .body(Map.of("message", "Please select a valid retailer"));
             }
-
-            String email = jwtUtil.extractEmail(authHeader.substring(7));
-            User farmer = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             User retailer = userRepository.findById(retailerId)
                     .orElseThrow(() -> new RuntimeException("Selected retailer not found"));
+
             if (!"retailer".equalsIgnoreCase(retailer.getRole())) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Selected user is not a retailer"));
-            }
-            if (!farmerRetailerRepository.existsByFarmerIdAndRetailerId(farmer.getId(), retailerId)) {
-                farmerRetailerRepository.save(new com.greenloop.model.FarmerRetailer(farmer.getId(), retailerId));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Selected user is not a retailer"));
             }
 
+            // ---------------------------------------------------------
+            // 5. Validate price and quantity
+            // ---------------------------------------------------------
+            double productPrice;
+            int productQuantity;
+
+            try {
+                productPrice = Double.parseDouble(price);
+                productQuantity = Integer.parseInt(quantity);
+            } catch (NumberFormatException e) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "message",
+                                "Price and quantity must contain valid numbers"));
+            }
+
+            if (productPrice <= 0) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Price must be greater than 0"));
+            }
+
+            if (productQuantity <= 0) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Quantity must be greater than 0"));
+            }
+
+            // ---------------------------------------------------------
+            // 6. AUTHORITATIVE AI QUALITY CHECK
+            //
+            // The frontend does NOT provide the quality score anymore.
+            // The backend sends the uploaded image directly to Gemini.
+            // ---------------------------------------------------------
+            String base64Image = Base64.getEncoder()
+                    .encodeToString(image.getBytes());
+
+            GeminiQualityResponse aiResult = geminiService.analyzeImage(
+                    cropType,
+                    base64Image,
+                    image.getContentType());
+
+            // ---------------------------------------------------------
+            // 7. AI quality gate
+            // ---------------------------------------------------------
+            if (!aiResult.consumable()) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                        .body(Map.of(
+                                "message",
+                                "This product did not pass the AI quality check and cannot be listed.",
+                                "analysis",
+                                aiResult.analysis(),
+                                "quality",
+                                aiResult.quality(),
+                                "rating",
+                                aiResult.rating(),
+                                "freshnessPercent",
+                                aiResult.freshnessPercent()));
+            }
+
+            // ---------------------------------------------------------
+            // 8. Upload image only AFTER AI validation succeeds
+            // ---------------------------------------------------------
             String imageUrl = imageUploadService.uploadImage(image);
 
+            // ---------------------------------------------------------
+            // 9. Create product
+            // ---------------------------------------------------------
             Product product = new Product();
+
             product.setCropType(cropType);
             product.setName(cropType);
             product.setSoilType(soilType);
             product.setPesticides(pesticides);
             product.setHarvestDate(harvestDate);
-            // Tolerant parsing: geolocation permission may have been
-            // denied on the farmer's device, in which case the frontend
-            // sends nothing (or, previously, the literal text "null") for
-            // these fields rather than a real number.
+
             product.setLatitude(parseNullableDouble(latitude));
             product.setLongitude(parseNullableDouble(longitude));
-            product.setQualityScore(parseNullableDouble(qualityScoreParam));
-            product.setQualityAnalysis(
-                    (qualityAnalysis != null && !qualityAnalysis.isBlank()) ? qualityAnalysis : null);
-            product.setFreshnessPercent(parseNullableInt(freshnessPercentParam));
-            product.setAiHealthBenefit((aiHealthBenefit != null && !aiHealthBenefit.isBlank()) ? aiHealthBenefit : null);
-            product.setAiDescription((aiDescription != null && !aiDescription.isBlank()) ? aiDescription : null);
-            product.setAiShelfLife((aiShelfLife != null && !aiShelfLife.isBlank()) ? aiShelfLife : null);
+
+            // IMPORTANT:
+            // These values come from Gemini, NOT from the frontend.
+            product.setQualityScore(aiResult.rating());
+            product.setQualityAnalysis(aiResult.analysis());
+            product.setFreshnessPercent(aiResult.freshnessPercent());
+            product.setAiHealthBenefit(aiResult.healthBenefit());
+            product.setAiDescription(aiResult.productDescription());
+            product.setAiShelfLife(aiResult.shelfLifeEstimate());
+
             product.setImageUrl(imageUrl);
             product.setFarmerId(farmer.getId());
-            product.setPrice(Double.parseDouble(price));
-            product.setQuantity(Integer.parseInt(quantity));
+            product.setPrice(productPrice);
+            product.setQuantity(productQuantity);
             product.setRetailerId(retailerId);
 
+            // ---------------------------------------------------------
+            // 10. Register farmer-retailer relationship
+            // ---------------------------------------------------------
+            if (!farmerRetailerRepository.existsByFarmerIdAndRetailerId(
+                    farmer.getId(),
+                    retailerId)) {
+
+                farmerRetailerRepository.save(
+                        new com.greenloop.model.FarmerRetailer(
+                                farmer.getId(),
+                                retailerId));
+            }
+
+            // ---------------------------------------------------------
+            // 11. Save product
+            // ---------------------------------------------------------
             Product savedProduct = productService.addProduct(product, retailerId);
 
-            System.out.println("[AUDIT] Product created: farmer=" + farmer.getId() + ", retailer=" + retailerId
-                    + ", cropType=" + cropType);
+            System.out.println(
+                    "[AUDIT] Product created: farmer="
+                            + farmer.getId()
+                            + ", retailer="
+                            + retailerId
+                            + ", cropType="
+                            + cropType
+                            + ", AI quality="
+                            + aiResult.quality());
 
             return ResponseEntity.ok(Map.of(
                     "message", "Product added successfully",
                     "product", savedProduct,
                     "farmerId", farmer.getId(),
-                    "retailerName", retailer.getName()));
+                    "retailerName", retailer.getName(),
+                    "aiQuality", aiResult));
+
+        } catch (IllegalStateException e) {
+
+            // Gemini configuration/API/response failure
+            System.err.println(
+                    "[ProductController] AI quality check failed: "
+                            + e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of(
+                            "message",
+                            "AI quality check is currently unavailable. Please try again later."));
+
         } catch (IOException e) {
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "Image upload failed: " + e.getMessage()));
+                    .body(Map.of(
+                            "message",
+                            "Image processing failed: " + e.getMessage()));
+
+        } catch (SecurityException e) {
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", e.getMessage()));
+
         } catch (Exception e) {
+
+            System.err.println(
+                    "[ProductController] Product creation failed: "
+                            + e.getMessage());
+
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Error creating product: " + e.getMessage()));
+                    .body(Map.of(
+                            "message",
+                            "Error creating product: " + e.getMessage()));
         }
     }
 

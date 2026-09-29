@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || "http://localhost:8080") + "/api";
+const API_BASE_URL =
+  (process.env.REACT_APP_API_BASE_URL || "http://localhost:8080") + "/api";
 
 // Create a reusable secure Axios instance (attaches JWT token)
 export const API = axios.create({
@@ -95,7 +96,10 @@ export const loginUser = async (email, password, role) => {
 
     return userWithToken;
   } catch (err) {
-    throw new Error(err.response?.data?.message || "Unable to reach the server. Please try again.");
+    throw new Error(
+      err.response?.data?.message ||
+        "Unable to reach the server. Please try again.",
+    );
   }
 };
 
@@ -235,24 +239,8 @@ export const addProductToBackend = async (productData) => {
     if (productData.longitude !== null && productData.longitude !== undefined) {
       formData.append("longitude", productData.longitude);
     }
-    if (productData.qualityScore !== null && productData.qualityScore !== undefined) {
-      formData.append("qualityScore", productData.qualityScore);
-    }
-    if (productData.qualityAnalysis) {
-      formData.append("qualityAnalysis", productData.qualityAnalysis);
-    }
-    if (productData.freshnessPercent !== null && productData.freshnessPercent !== undefined) {
-      formData.append("freshnessPercent", productData.freshnessPercent);
-    }
-    if (productData.aiHealthBenefit) {
-      formData.append("aiHealthBenefit", productData.aiHealthBenefit);
-    }
-    if (productData.aiDescription) {
-      formData.append("aiDescription", productData.aiDescription);
-    }
-    if (productData.aiShelfLife) {
-      formData.append("aiShelfLife", productData.aiShelfLife);
-    }
+    // AI quality fields are intentionally NOT sent by the frontend.
+    // The backend calls Gemini and generates the authoritative values.
     formData.append("price", productData.price);
     formData.append("quantity", productData.quantity);
     // NEW: Farmer explicitly chooses which retailer in their network gets this product
@@ -279,7 +267,8 @@ export const updateProductInBackend = async (productId, productData) => {
     formData.append("price", productData.price);
     formData.append("quantity", productData.quantity);
     // NEW: Retailer is editable after creation too
-    if (productData.retailerId) formData.append("retailerId", productData.retailerId);
+    if (productData.retailerId)
+      formData.append("retailerId", productData.retailerId);
     if (productData.imageFile) formData.append("image", productData.imageFile);
 
     const response = await PRODUCTS_API.put(`/${productId}`, formData, {
@@ -387,7 +376,8 @@ export const addDistributorToNetwork = async (distributorId) => {
     return response.data;
   } catch (err) {
     throw new Error(
-      err.response?.data?.message || "Failed to add distributor to your network",
+      err.response?.data?.message ||
+        "Failed to add distributor to your network",
     );
   }
 };

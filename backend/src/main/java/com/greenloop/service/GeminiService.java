@@ -24,9 +24,9 @@ public class GeminiService {
     private final String model;
 
     public GeminiService(RestTemplateBuilder restTemplateBuilder,
-                         ObjectMapper objectMapper,
-                         @Value("${gemini.api.key:}") String apiKey,
-                         @Value("${gemini.model:gemini-2.5-flash}") String model) {
+            ObjectMapper objectMapper,
+            @Value("${gemini.api.key:}") String apiKey,
+            @Value("${gemini.model:gemini-2.5-flash}") String model) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofSeconds(10))
                 .setReadTimeout(Duration.ofSeconds(60))
@@ -37,6 +37,13 @@ public class GeminiService {
     }
 
     public GeminiQualityResponse analyzeImage(String product, String base64Image) {
+        return analyzeImage(product, base64Image, "image/jpeg");
+    }
+
+    public GeminiQualityResponse analyzeImage(
+            String product,
+            String base64Image,
+            String mimeType) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Gemini API key is not configured. Set GEMINI_API_KEY in the environment.");
         }
@@ -44,7 +51,8 @@ public class GeminiService {
             throw new IllegalArgumentException("Image payload is required.");
         }
 
-        String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+        String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key="
+                + apiKey;
 
         Map<String, Object> payload = Map.of(
                 "contents", List.of(
@@ -53,31 +61,25 @@ public class GeminiService {
                                 "parts", List.of(
                                         Map.of("text", buildPrompt(product)),
                                         Map.of("inlineData", Map.of(
-                                                "mimeType", "image/jpeg",
-                                                "data", base64Image
-                                        ))
-                                )
-                        )
-                ),
+                                                "mimeType", mimeType,
+                                                "data", base64Image))
+                                                ))),
                 "generationConfig", Map.of(
                         "responseMimeType", "application/json",
                         "responseSchema", Map.of(
                                 "type", "OBJECT",
                                 "properties", Map.ofEntries(
-                                Map.entry("productName", Map.of("type", "STRING")),
-                                Map.entry("freshnessStatus", Map.of("type", "STRING")),
-                                Map.entry("overallQuality", Map.of("type", "STRING")),
-                                Map.entry("confidence", Map.of("type", "NUMBER", "format", "float")),
-                                Map.entry("justification", Map.of("type", "STRING")),
-                                Map.entry("healthBenefit", Map.of("type", "STRING")),
-                                Map.entry("productDescription", Map.of("type", "STRING")),
-                                Map.entry("shelfLifeEstimate", Map.of("type", "STRING"))
-                        ),
-                        "propertyOrdering", List.of("productName", "freshnessStatus", "overallQuality", "confidence",
-                                "justification", "healthBenefit", "productDescription", "shelfLifeEstimate")
-                        )
-                )
-        );
+                                        Map.entry("productName", Map.of("type", "STRING")),
+                                        Map.entry("freshnessStatus", Map.of("type", "STRING")),
+                                        Map.entry("overallQuality", Map.of("type", "STRING")),
+                                        Map.entry("confidence", Map.of("type", "NUMBER", "format", "float")),
+                                        Map.entry("justification", Map.of("type", "STRING")),
+                                        Map.entry("healthBenefit", Map.of("type", "STRING")),
+                                        Map.entry("productDescription", Map.of("type", "STRING")),
+                                        Map.entry("shelfLifeEstimate", Map.of("type", "STRING"))),
+                                "propertyOrdering",
+                                List.of("productName", "freshnessStatus", "overallQuality", "confidence",
+                                        "justification", "healthBenefit", "productDescription", "shelfLifeEstimate"))));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -158,8 +160,7 @@ public class GeminiService {
                     freshnessPercent,
                     healthBenefit,
                     productDescription,
-                    shelfLifeEstimate
-            );
+                    shelfLifeEstimate);
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to parse Gemini response", ex);
         }
@@ -221,7 +222,6 @@ public class GeminiService {
             int freshnessPercent,
             String healthBenefit,
             String productDescription,
-            String shelfLifeEstimate
-    ) {
+            String shelfLifeEstimate) {
     }
 }

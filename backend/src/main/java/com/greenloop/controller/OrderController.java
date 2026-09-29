@@ -84,19 +84,17 @@ public class OrderController {
 
             System.out.println("[OrderController] Processing " + request.items.size() + " items");
 
-          List<OrderService.CheckoutItem> serviceItems = request.items.stream()
-        .map(i -> new OrderService.CheckoutItem(i.productId, i.quantity))
-        .collect(Collectors.toList());
+            List<OrderService.CheckoutItem> serviceItems = request.items.stream()
+                    .map(i -> new OrderService.CheckoutItem(i.productId, i.quantity))
+                    .collect(Collectors.toList());
 
-Order order = orderService.createOrderFromCheckout(
-        customer,
-        serviceItems,
-        request.deliveryAddress,
-        request.deliveryLatitude,
-        request.deliveryLongitude,
-        request.paymentMethod
-);
-
+            Order order = orderService.createOrderFromCheckout(
+                    customer,
+                    serviceItems,
+                    request.deliveryAddress,
+                    request.deliveryLatitude,
+                    request.deliveryLongitude,
+                    request.paymentMethod);
 
             System.out.println("[OrderController] Order created: " + order.getId());
 
@@ -360,8 +358,8 @@ Order order = orderService.createOrderFromCheckout(
                         .collect(Collectors.toList());
             }
 
-            java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> eventsByItem =
-                    orderService.getTraceForOrder(order);
+            java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> eventsByItem = orderService
+                    .getTraceForOrder(order);
 
             List<ItemTraceResponse> items = visibleItems.stream()
                     .map(item -> buildItemTrace(item, eventsByItem.getOrDefault(item.getId(), new ArrayList<>())))
@@ -535,30 +533,44 @@ Order order = orderService.createOrderFromCheckout(
             @RequestHeader("Authorization") String authHeader) {
 
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Missing or invalid Authorization header"));
+            }
+
             String token = authHeader.substring(7);
             String email = jwtUtil.extractEmail(token);
             String role = jwtUtil.extractRole(token);
 
-            if ("customer".equalsIgnoreCase(role)) {
-                User customer = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new Exception("User not found"));
-
-                Order order = orderService.getOrder(id);
-                if (!order.getCustomer().getId().equals(customer.getId())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body(new ErrorResponse("Cannot cancel someone else's order"));
-                }
+            if (!"customer".equalsIgnoreCase(role)
+                    && !"admin".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse(
+                                "Only customers can cancel their own orders or admins can cancel orders"));
             }
 
-            Order order = orderService.cancelOrder(id);
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new Exception("User not found"));
+
+            Order order = orderService.cancelOrder(
+                    id,
+                    user.getId(),
+                    role);
+
             return ResponseEntity.ok(new OrderResponse(order));
+
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ErrorResponse(e.getMessage()));
 
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse(e.getMessage()));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Failed to cancel order: " + e.getMessage()));
+                    .body(new ErrorResponse(
+                            "Failed to cancel order: " + e.getMessage()));
         }
     }
 
@@ -569,7 +581,8 @@ Order order = orderService.createOrderFromCheckout(
         public Double deliveryLongitude;
         public String paymentMethod;
 
-        public CheckoutRequest() {}
+        public CheckoutRequest() {
+        }
 
         public CheckoutRequest(List<CheckoutItemRequest> items) {
             this.items = items;
@@ -580,7 +593,8 @@ Order order = orderService.createOrderFromCheckout(
         public Long productId;
         public Integer quantity;
 
-        public CheckoutItemRequest() {}
+        public CheckoutItemRequest() {
+        }
 
         public CheckoutItemRequest(Long productId, Integer quantity) {
             this.productId = productId;
@@ -599,7 +613,8 @@ Order order = orderService.createOrderFromCheckout(
         public List<OrderItemResponse> items;
         public String deliveryAddress;
 
-        public OrderResponse() {}
+        public OrderResponse() {
+        }
 
         public OrderResponse(Order order) {
             this(order, null, null, null);
@@ -668,7 +683,8 @@ Order order = orderService.createOrderFromCheckout(
         public String status;
         public Long distributorId;
 
-        public OrderItemResponse() {}
+        public OrderItemResponse() {
+        }
 
         public OrderItemResponse(OrderItem item) {
             this.id = item.getId();

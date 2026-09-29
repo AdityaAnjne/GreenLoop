@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import com.greenloop.dto.PublicUserDto;
 import com.greenloop.model.User;
 import com.greenloop.repository.UserRepository;
 import com.greenloop.security.JwtUtil;
@@ -61,7 +62,7 @@ public class UserController {
     public ResponseEntity<?> registerUser(@RequestBody User user) {
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                 .body(Map.of("message", "Email already exists!"));
+                    .body(Map.of("message", "Email already exists!"));
         }
 
         if (user.getUsername() == null || user.getUsername().isEmpty()) {
@@ -87,7 +88,8 @@ public class UserController {
                 validRole = "customer";
             } else {
                 // Any other role (including "admin") defaults to customer
-                System.out.println("[SECURITY] Attempted role registration: " + requestedRole + " → defaulted to customer");
+                System.out.println(
+                        "[SECURITY] Attempted role registration: " + requestedRole + " → defaulted to customer");
                 validRole = "customer";
             }
         }
@@ -131,7 +133,8 @@ public class UserController {
                 if (!isAdminAccount &&
                         (user.getRole() == null || !user.getRole().equalsIgnoreCase(requestedRole))) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body(Map.of("message", "Role mismatch for this account. Please select your assigned role."));
+                            .body(Map.of("message",
+                                    "Role mismatch for this account. Please select your assigned role."));
                 }
 
                 // Upgrade legacy plain-text password to hashed if needed
@@ -143,30 +146,45 @@ public class UserController {
                 // SECURITY: Generate token from DATABASE role only
                 String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
                 return ResponseEntity.ok(Map.of(
-                    "message", "Login successful!",
-                    "user", user,
-                    "token", token
-                ));
+                        "message", "Login successful!",
+                        "user", user,
+                        "token", token));
             }
         }
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                             .body(Map.of("message", "Invalid email or password!"));
+                .body(Map.of("message", "Invalid email or password!"));
     }
 
-    // Admin-only: Get all users (passwords included)
-    @GetMapping("/all-with-passwords")
-    public ResponseEntity<?> getAllUsersWithPasswords(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
-        String requesterRole = jwtUtil.extractRole(token);
+    // Admin-only: Get users without exposing password hashes
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllUsers(@RequestHeader("Authorization") String authHeader) {
 
-        if (!"admin".equalsIgnoreCase(requesterRole)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body(Map.of("message", "Access denied. Admins only."));
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Missing or invalid authorization header"));
+            }
+
+            String token = authHeader.substring(7);
+            String requesterRole = jwtUtil.extractRole(token);
+
+            if (!"admin".equalsIgnoreCase(requesterRole)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Access denied. Admins only."));
+            }
+
+            List<PublicUserDto> users = userRepository.findAll()
+                    .stream()
+                    .map(PublicUserDto::from)
+                    .toList();
+
+            return ResponseEntity.ok(users);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid or expired token"));
         }
-
-        List<User> users = userRepository.findAll();
-        return ResponseEntity.ok(users);
     }
 
     // Admin-only: Update user role
@@ -181,13 +199,13 @@ public class UserController {
 
         if (!"admin".equalsIgnoreCase(requesterRole)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body(Map.of("message", "Access denied. Admins only."));
+                    .body(Map.of("message", "Access denied. Admins only."));
         }
 
         Optional<User> userOpt = userRepository.findById(id);
         if (!userOpt.isPresent()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                 .body(Map.of("message", "User not found!"));
+                    .body(Map.of("message", "User not found!"));
         }
 
         User user = userOpt.get();
@@ -195,11 +213,12 @@ public class UserController {
         // Prevent editing admin role
         if (user.getRole().equalsIgnoreCase("admin")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body(Map.of("message", "Admin role cannot be changed!"));
+                    .body(Map.of("message", "Admin role cannot be changed!"));
         }
 
         String role = body.get("role");
-        if (role.equalsIgnoreCase("admin")) role = "customer"; // prevent escalation
+        if (role.equalsIgnoreCase("admin"))
+            role = "customer"; // prevent escalation
 
         user.setRole(role);
         userRepository.save(user);
@@ -218,20 +237,20 @@ public class UserController {
 
         if (!"admin".equalsIgnoreCase(requesterRole)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body(Map.of("message", "Access denied. Admins only."));
+                    .body(Map.of("message", "Access denied. Admins only."));
         }
 
         Optional<User> userOpt = userRepository.findById(id);
         if (!userOpt.isPresent()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                 .body(Map.of("message", "User not found!"));
+                    .body(Map.of("message", "User not found!"));
         }
 
         User user = userOpt.get();
 
         if (user.getRole().equalsIgnoreCase("admin")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body(Map.of("message", "Admin user cannot be deleted!"));
+                    .body(Map.of("message", "Admin user cannot be deleted!"));
         }
 
         userRepository.deleteById(id);

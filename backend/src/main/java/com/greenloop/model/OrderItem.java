@@ -3,6 +3,7 @@ package com.greenloop.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * PRODUCTION ORDER ITEM ENTITY
@@ -22,10 +23,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "order_items", indexes = {
-    @Index(name = "idx_order_id", columnList = "order_id"),
-    @Index(name = "idx_product_id", columnList = "product_id"),
-    @Index(name = "idx_retailer_id", columnList = "retailer_id"),
-    @Index(name = "idx_farmer_id", columnList = "farmer_id")
+        @Index(name = "idx_order_id", columnList = "order_id"),
+        @Index(name = "idx_product_id", columnList = "product_id"),
+        @Index(name = "idx_retailer_id", columnList = "retailer_id"),
+        @Index(name = "idx_farmer_id", columnList = "farmer_id")
 })
 public class OrderItem {
 
@@ -61,7 +62,6 @@ public class OrderItem {
     private Long retailerId;
 
     // PER-RETAILER FULFILLMENT STATE
-
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -100,15 +100,17 @@ public class OrderItem {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(
+                ZoneId.of("Asia/Kolkata"));
     }
 
     // CONSTRUCTORS
 
-    public OrderItem() {}
+    public OrderItem() {
+    }
 
-    public OrderItem(Order order, Product product, Long farmerId, Long retailerId, 
-                     Integer quantity, BigDecimal priceAtPurchase) {
+    public OrderItem(Order order, Product product, Long farmerId, Long retailerId,
+            Integer quantity, BigDecimal priceAtPurchase) {
         this.order = order;
         this.product = product;
         this.farmerId = farmerId;
@@ -121,6 +123,7 @@ public class OrderItem {
 
     /**
      * Calculate subtotal for this line item
+     * 
      * @return quantity * priceAtPurchase
      */
     public BigDecimal getLineTotal() {

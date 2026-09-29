@@ -87,9 +87,15 @@ public class OrderService {
 
         for (CheckoutItem cartItem : cartItems) {
 
+            if (cartItem.quantity == null || cartItem.quantity <= 0) {
+                throw new IllegalArgumentException(
+                        "Quantity must be greater than 0.");
+            }
+
             if (cartItem.quantity > 10) {
                 throw new IllegalArgumentException(
-                        "Maximum order quantity is 10kg per item. Requested: " + cartItem.quantity + "kg");
+                        "Maximum order quantity is 10kg per item. Requested: "
+                                + cartItem.quantity + "kg");
             }
 
             // Get product from database
@@ -150,7 +156,7 @@ public class OrderService {
         order.setDeliveryAddress(deliveryAddress);
         order.setDeliveryLatitude(deliveryLatitude);
         order.setDeliveryLongitude(deliveryLongitude);
-        
+
         customer.setDeliveryAddress(deliveryAddress);
         customer.setDeliveryLatitude(deliveryLatitude);
         customer.setDeliveryLongitude(deliveryLongitude);
@@ -243,8 +249,8 @@ public class OrderService {
             return new java.util.HashMap<>();
         }
 
-        List<com.greenloop.model.OrderItemStatusEvent> events =
-                orderItemStatusEventRepository.findByOrderItemIdIn(itemIds);
+        List<com.greenloop.model.OrderItemStatusEvent> events = orderItemStatusEventRepository
+                .findByOrderItemIdIn(itemIds);
 
         java.util.Map<Long, List<com.greenloop.model.OrderItemStatusEvent>> byItem = new java.util.HashMap<>();
         for (com.greenloop.model.OrderItemStatusEvent event : events) {
@@ -415,9 +421,22 @@ public class OrderService {
      * Can be called at any point before delivery
      */
     @Transactional
-        public Order cancelOrder(Long orderId) throws Exception {
+    public Order cancelOrder(Long orderId, Long actorId, String role) throws Exception {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new Exception("Order not found: " + orderId));
+
+        // Customers can cancel only their own orders.
+        // Admins can cancel any order.
+        if ("customer".equalsIgnoreCase(role)) {
+            if (order.getCustomer() == null
+                    || !actorId.equals(order.getCustomer().getId())) {
+                throw new SecurityException(
+                        "You can only cancel your own orders");
+            }
+        } else if (!"admin".equalsIgnoreCase(role)) {
+            throw new SecurityException(
+                    "You are not authorized to cancel this order");
+        }
 
         // Cancel only the items that are still cancellable (PLACED or
         // CONFIRMED), the same per-item scoping already used everywhere

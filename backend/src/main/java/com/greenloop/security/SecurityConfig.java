@@ -36,33 +36,37 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/products/farmer/**").authenticated()
-                // SECURITY: Public endpoints
-                .requestMatchers(
-                    "/api/users/login",
-                    "/api/users/register",
-                    "/api/users/test",
-                    "/api/auth/forgot-password",
-                    "/api/auth/reset-password",
-                    "/api/products/**",
-                    "/api/ai/**"
-                ).permitAll()
-                // SECURITY: any logged-in user can read their own profile
-                .requestMatchers("/api/users/me").authenticated()
-                // SECURITY: STRICTLY enforce admin endpoints - ROLE_ADMIN only
-                .requestMatchers("/api/users/all-with-passwords").hasRole("ADMIN")
-                .requestMatchers("/api/users/*/role").hasRole("ADMIN")
-                .requestMatchers("/api/users/*").hasRole("ADMIN")
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                // All other requests require authentication
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/products/add").hasRole("FARMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("FARMER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("FARMER")
+                        .requestMatchers(HttpMethod.GET, "/api/products/farmer/**").hasRole("FARMER")
+                        .requestMatchers("/api/ai/**").authenticated()
+
+                        // SECURITY: Public endpoints
+                        .requestMatchers(
+                                "/api/users/login",
+                                "/api/users/register",
+                                "/api/users/test",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/products/all",
+                                "/api/products/customer/**",
+                                "/api/products/marketplace/**",
+                                "/api/products/*")
+                        .permitAll()
+                        // SECURITY: any logged-in user can read their own profile
+                        .requestMatchers("/api/users/me").authenticated()
+                        // SECURITY: STRICTLY enforce admin endpoints - ROLE_ADMIN only
+                        .requestMatchers("/api/users/all").hasRole("ADMIN")
+                        .requestMatchers("/api/users/*/role").hasRole("ADMIN")
+                        .requestMatchers("/api/users/*").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // All other requests require authentication
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

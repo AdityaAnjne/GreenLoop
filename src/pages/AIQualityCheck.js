@@ -47,7 +47,7 @@ const AIQualityCheck = () => {
       const aiRating = ai.rating || 3.0;
       const isConsumable = ai.consumable !== false;
       const aiAnalysis = ai.analysis || "Analysis complete.";
-      const aiConfidence = ai.confidence || 85;
+      const aiConfidence = ai.confidence || 0;
 
       // Map AI rating (1-5 scale) to quality score (0-100)
       let qualityScore = Math.round((aiRating / 5) * 100);
@@ -74,28 +74,21 @@ const AIQualityCheck = () => {
       // Verified only if consumable and good quality
       const verified = isConsumable && qualityScore >= 70;
 
-      // Organic certification (deterministic based on AI confidence)
-      const isOrganic = aiConfidence >= 90;
-
-      // Harvest date (recent for fresh, older for lower quality)
-      const daysAgo = verified
-        ? Math.floor(Math.random() * 7)
-        : Math.floor(Math.random() * 21);
-      const harvestDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
+      // An image alone cannot verify official organic certification
+      // or determine the actual harvest date.
+      const isOrganic = null;
+      const harvestDate = null;
 
       // Set result with AI-driven data
       setResult({
         score: qualityScore,
-        isOrganic,
         freshness,
         verified,
         detectedIssues,
         detectedProduct,
-        harvestDate,
         aiQuality,
         aiAnalysis,
+        confidence: aiConfidence,
       });
     } catch (error) {
       console.error("AI analysis failed:", error);
@@ -201,7 +194,7 @@ const AIQualityCheck = () => {
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <CheckCircle2 className="text-emerald-500" size={16} />
-                Organic certification validity
+                AI-based visual quality assessment
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <CheckCircle2 className="text-emerald-500" size={16} />
@@ -209,7 +202,7 @@ const AIQualityCheck = () => {
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <CheckCircle2 className="text-emerald-500" size={16} />
-                Harvest date verification
+                Freshness estimation from visual features
               </div>
             </div>
           </div>
@@ -285,8 +278,8 @@ const AIQualityCheck = () => {
                             result.freshness >= 70
                               ? "bg-gradient-to-r from-emerald-500 to-green-600"
                               : result.freshness >= 40
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
-                              : "bg-gradient-to-r from-orange-500 to-red-600"
+                                ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                                : "bg-gradient-to-r from-orange-500 to-red-600"
                           }`}
                           style={{ width: `${result.freshness}%` }}
                         />
@@ -296,8 +289,8 @@ const AIQualityCheck = () => {
                           result.freshness >= 70
                             ? "text-emerald-600"
                             : result.freshness >= 40
-                            ? "text-orange-600"
-                            : "text-red-600"
+                              ? "text-orange-600"
+                              : "text-red-600"
                         }`}
                       >
                         {result.freshness}%
@@ -329,32 +322,28 @@ const AIQualityCheck = () => {
                     <p className="text-sm text-gray-600">
                       Organic Certification
                     </p>
+
                     <div className="flex items-center gap-2 mt-1">
-                      {result.isOrganic ? (
-                        <>
-                          <CheckCircle2
-                            className="text-emerald-500"
-                            size={20}
-                          />
-                          <span className="font-semibold text-emerald-700">
-                            Certified Organic
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="text-orange-500" size={20} />
-                          <span className="font-semibold text-orange-700">
-                            Not Certified
-                          </span>
-                        </>
-                      )}
+                      <span className="font-semibold text-gray-700">
+                        Not verified from image
+                      </span>
                     </div>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      Official organic certification requires documentary
+                      verification.
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-gray-600">Estimated Harvest</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {result.harvestDate}
+                    <p className="text-sm text-gray-600">Harvest Date</p>
+                    <p className="text-lg font-semibold text-gray-700">
+                      Not determined from image
+                    </p>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      The actual harvest date comes from the farmer's product
+                      record.
                     </p>
                   </div>
                 </div>

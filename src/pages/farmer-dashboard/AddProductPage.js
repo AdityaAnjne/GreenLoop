@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { addProductToBackend, getAvailableRetailers } from "../api";
-import { analyzeImageWithAI } from "../../services/aiService";
 import "../../styles/addProduct.css";
 
 function AddProductPage({ addProduct }) {
@@ -12,6 +11,7 @@ function AddProductPage({ addProduct }) {
     pesticides: "",
     harvestDate: "",
     price: "",
+    quantity: "",
     imageFile: null,
     retailerId: "",
   });
@@ -50,6 +50,8 @@ function AddProductPage({ addProduct }) {
     if (!form.harvestDate) newErrors.harvestDate = "Harvest date is required";
     if (!form.price || Number(form.price) <= 0)
       newErrors.price = "Enter a valid price";
+    if (!form.quantity || Number(form.quantity) <= 0)
+      newErrors.quantity = "Enter a valid quantity";
     if (!form.imageFile) newErrors.image = "Product image is required";
     // NEW: Retailer selection is mandatory — backend enforces this too
     if (!form.retailerId) newErrors.retailerId = "Please select a retailer";
@@ -101,55 +103,10 @@ function AddProductPage({ addProduct }) {
     try {
       const { lat, lng } = await getFarmLocation();
 
-      // AI quality check happens HERE — at listing time, on the actual
-      // photo the farmer is uploading — not as a disconnected post-purchase
-      // tool. The result becomes a permanent, visible part of the product,
-      // seen by anyone who views it (online) or scans its QR code
-      // (in person), before they decide to buy.
-      let qualityScore = null;
-      let qualityAnalysis = null;
-      let freshnessPercent = null;
-      let aiHealthBenefit = null;
-      let aiDescription = null;
-      let aiShelfLife = null;
-      // AI quality check is now a REQUIRED gate, not an optional
-      // enhancement — a product cannot be listed at all if the AI check
-      // either fails technically OR runs successfully but judges the
-      // product unfit for sale (consumable: false). This intentionally
-      // means a temporary AI outage blocks new listings until it recovers
-      // (the backend already retries transient failures once before
-      // giving up, which covers most momentary blips).
-      let aiResult;
-      try {
-        aiResult = await analyzeImageWithAI(form.imageFile);
-      } catch (aiError) {
-        console.error("AI quality check failed:", aiError);
-        setErrors((prev) => ({
-          ...prev,
-          submit:
-            "AI quality check is currently unavailable, so this product cannot be listed right now. Please try again in a few minutes.",
-        }));
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (aiResult?.consumable === false) {
-        setErrors((prev) => ({
-          ...prev,
-          submit: `This product did not pass the AI quality check and cannot be listed. AI feedback: "${
-            aiResult.analysis || "Quality below acceptable threshold."
-          }"`,
-        }));
-        setIsSubmitting(false);
-        return;
-      }
-
-      qualityScore = aiResult?.rating ?? null;
-      qualityAnalysis = aiResult?.analysis ?? null;
-      freshnessPercent = aiResult?.freshnessPercent ?? null;
-      aiHealthBenefit = aiResult?.healthBenefit ?? null;
-      aiDescription = aiResult?.productDescription ?? null;
-      aiShelfLife = aiResult?.shelfLifeEstimate ?? null;
+      // AI quality validation is performed by the backend.
+      // The frontend does not calculate or submit quality values.
+      // Spring Boot sends the image directly to Gemini and stores
+      // the authoritative AI result.
 
       const savedProduct = await addProductToBackend({
         imageFile: form.imageFile,
@@ -160,14 +117,8 @@ function AddProductPage({ addProduct }) {
         latitude: lat,
         longitude: lng,
         price: form.price,
-        quantity: "9999",
+        quantity: form.quantity,
         retailerId: form.retailerId,
-        qualityScore: qualityScore,
-        qualityAnalysis: qualityAnalysis,
-        freshnessPercent: freshnessPercent,
-        aiHealthBenefit: aiHealthBenefit,
-        aiDescription: aiDescription,
-        aiShelfLife: aiShelfLife,
       });
 
       // Keep local state in sync too, in case the dashboard doesn't refetch immediately
@@ -315,22 +266,45 @@ function AddProductPage({ addProduct }) {
                 <label htmlFor="price" className="required">
                   Price (per kg)
                 </label>
+
                 <input
                   type="number"
                   id="price"
                   name="price"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   value={form.price}
                   onChange={handleChange}
                   className={errors.price ? "error" : ""}
-                  placeholder="e.g., 2.50"
+                  placeholder="e.g., 50.00"
                 />
+
                 {errors.price && (
                   <span className="error-text">{errors.price}</span>
                 )}
               </div>
 
+              <div className="form-group">
+                <label htmlFor="quantity" className="required">
+                  Available Quantity (kg)
+                </label>
+
+                <input
+                  type="number"
+                  id="quantity"
+                  name="quantity"
+                  min="1"
+                  step="1"
+                  value={form.quantity}
+                  onChange={handleChange}
+                  className={errors.quantity ? "error" : ""}
+                  placeholder="e.g., 100"
+                />
+
+                {errors.quantity && (
+                  <span className="error-text">{errors.quantity}</span>
+                )}
+              </div>
             </div>
 
             <div className="form-section">
