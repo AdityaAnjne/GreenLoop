@@ -845,6 +845,17 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="px-6 pb-6 space-y-5 text-sm">
+              {detailsProduct.farmerName && (
+                <div>
+                  <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    Farmer
+                  </p>
+                  <p className={isDark ? "text-slate-400" : "text-gray-600"}>
+                    {detailsProduct.farmerName}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <p className={`font-semibold mb-1 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
                   Health Benefits

@@ -43,7 +43,31 @@ public class ProductService {
                 p.setStatus("AVAILABLE");
             }
         });
+        // Customer should always see who grew it, including on the
+        // marketplace list/card view — not just the single-product QR page.
+        attachFarmerNames(products);
         return products;
+    }
+
+    /**
+     * Batch-looks-up farmer names for a list of products (one query, not
+     * one-per-product) and sets the transient farmerName field on each.
+     */
+    private void attachFarmerNames(List<Product> products) {
+        java.util.Set<Long> farmerIds = products.stream()
+                .map(Product::getFarmerId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (farmerIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<Long, String> namesById = new java.util.HashMap<>();
+        userRepository.findAllById(farmerIds).forEach(u -> namesById.put(u.getId(), u.getName()));
+        products.forEach(p -> {
+            if (p.getFarmerId() != null) {
+                p.setFarmerName(namesById.get(p.getFarmerId()));
+            }
+        });
     }
 
     /**
