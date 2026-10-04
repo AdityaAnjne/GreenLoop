@@ -20,7 +20,6 @@ import Footer from "./components/Footer";
 // Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import AIQualityCheck from "./pages/AIQualityCheck";
 
 import ProductsPage from "./pages/farmer-dashboard/ProductsPage";
 import AddProductPage from "./pages/farmer-dashboard/AddProductPage";
@@ -112,14 +111,6 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/unauthorized" element={<Unauthorized />} />{" "}
-            <Route
-              path="/ai-quality-check"
-              element={
-                <PrivateRoute allowedRoles={["customer"]}>
-                  <AIQualityCheck />
-                </PrivateRoute>
-              }
-            />{" "}
             <Route
               path="/edit-product/:id"
               element={

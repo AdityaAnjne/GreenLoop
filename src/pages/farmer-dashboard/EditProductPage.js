@@ -14,6 +14,8 @@ function EditProductPage({ products, onUpdateProduct }) {
     soilType: "",
     pesticides: "",
     harvestDate: "",
+    quantity: "",
+    productType: "",
     price: "",
     imageFile: null,
     imageUrl: "",
@@ -49,7 +51,9 @@ function EditProductPage({ products, onUpdateProduct }) {
         cropType: productToEdit.cropType,
         soilType: productToEdit.soilType,
         pesticides: productToEdit.pesticides,
-        harvestDate: productToEdit.harvestDate,
+        harvestDate: productToEdit.harvestDate ?? "",
+        quantity: productToEdit.quantity ?? "",
+        productType: productToEdit.productType ?? "STORED_STOCK",
         price: productToEdit.price ?? "",
         imageFile: null,
         imageUrl: productToEdit.imageUrl,
@@ -78,7 +82,11 @@ function EditProductPage({ products, onUpdateProduct }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await onUpdateProduct(Number(id), { ...form, quantity: "9999" });
+      await onUpdateProduct(Number(id), {
+        ...form,
+        harvestDate: form.productType === "STORED_STOCK" ? form.harvestDate : null,
+        quantity: form.productType === "STORED_STOCK" ? form.quantity : null,
+      });
       alert("Product updated successfully!");
       navigate("/farmer-dashboard");
     } catch (err) {
@@ -166,17 +174,36 @@ function EditProductPage({ products, onUpdateProduct }) {
                   onChange={handleChange}
                 />
               </div>
+              {form.productType === "STORED_STOCK" && (
+                <div className="form-group">
+                  <label htmlFor="harvestDate" className="required">
+                    Harvest Date
+                  </label>
+                  <input
+                    type="date"
+                    id="harvestDate"
+                    name="harvestDate"
+                    value={form.harvestDate}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="harvestDate" className="required">
-                  Harvest Date
+                <label htmlFor="productType" className="required">
+                  Product Type
                 </label>
-                <input
-                  type="date"
-                  id="harvestDate"
-                  name="harvestDate"
-                  value={form.harvestDate}
+                <select
+                  id="productType"
+                  name="productType"
+                  value={form.productType}
                   onChange={handleChange}
-                />
+                >
+                  <option value="STORED_STOCK">Stored Stock (ready now)</option>
+                  <option value="FRESH_HARVEST">Fresh Harvest (picked on order)</option>
+                </select>
               </div>
             </div>
 
@@ -196,6 +223,23 @@ function EditProductPage({ products, onUpdateProduct }) {
                   placeholder="e.g., 2.50"
                 />
               </div>
+              {form.productType === "STORED_STOCK" && (
+                <div className="form-group">
+                  <label htmlFor="quantity" className="required">
+                    Quantity (kg)
+                  </label>
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    min="1"
+                    step="1"
+                    value={form.quantity}
+                    onChange={handleChange}
+                    placeholder="e.g., 100"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="form-section">

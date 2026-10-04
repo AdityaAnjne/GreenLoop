@@ -81,6 +81,13 @@ public class ProductService {
             throw new RuntimeException("Product is not available");
         }
 
+        // Customer should always see who grew it — this is populated
+        // only here (never persisted) for the public product-detail page.
+        if (product.getFarmerId() != null) {
+            userRepository.findById(product.getFarmerId())
+                    .ifPresent(farmer -> product.setFarmerName(farmer.getName()));
+        }
+
         return product;
     }
     
@@ -204,7 +211,7 @@ public class ProductService {
     @Transactional
     public Product updateProductForFarmer(Long id, Long farmerId, String cropType,
             String soilType, String pesticides, String harvestDate, String imageUrl,
-            Double price, Integer quantity, Long retailerId) {
+            Double price, Integer quantity, Long retailerId, com.greenloop.model.ProductType productType) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
@@ -215,6 +222,9 @@ public class ProductService {
         product.setCropType(cropType);
         product.setSoilType(soilType);
         product.setPesticides(pesticides);
+        product.setProductType(productType);
+        // Conditional fields — the controller has already nulled these
+        // out for FRESH_HARVEST before calling this method.
         product.setHarvestDate(harvestDate);
         product.setPrice(price);
         product.setQuantity(quantity);

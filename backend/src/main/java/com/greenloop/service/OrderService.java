@@ -110,14 +110,19 @@ public class OrderService {
                 throw new Exception("Product missing retailer ID: " + product.getId());
             }
 
-            // Validate inventory
-            if (product.getQuantity() == null || product.getQuantity() <= 0) {
-                throw new Exception("Product out of stock: " + product.getCropType());
-            }
-            if (product.getQuantity() < cartItem.quantity) {
-                throw new Exception("Insufficient stock for " + product.getCropType() +
-                        ". Available: " + product.getQuantity() +
-                        ", Requested: " + cartItem.quantity);
+            // FRESH_HARVEST items have no fixed stock count — they're
+            // picked specifically for this order, so there's nothing to
+            // check against. Only STORED_STOCK enforces a real inventory
+            // ledger.
+            if (product.getProductType() != com.greenloop.model.ProductType.FRESH_HARVEST) {
+                if (product.getQuantity() == null || product.getQuantity() <= 0) {
+                    throw new Exception("Product out of stock: " + product.getCropType());
+                }
+                if (product.getQuantity() < cartItem.quantity) {
+                    throw new Exception("Insufficient stock for " + product.getCropType() +
+                            ". Available: " + product.getQuantity() +
+                            ", Requested: " + cartItem.quantity);
+                }
             }
 
             // Validate price exists
@@ -186,12 +191,15 @@ public class OrderService {
 
         for (OrderItem item : orderItems) {
             Product product = item.getProduct();
-            Integer newQuantity = product.getQuantity() - item.getQuantity();
-            product.setQuantity(newQuantity);
-            productRepository.save(product);
+            if (product.getProductType() != com.greenloop.model.ProductType.FRESH_HARVEST
+                    && product.getQuantity() != null) {
+                Integer newQuantity = product.getQuantity() - item.getQuantity();
+                product.setQuantity(newQuantity);
+                productRepository.save(product);
 
-            System.out.println("[OrderService] Inventory updated: productId=" + product.getId() +
-                    ", newQuantity=" + newQuantity);
+                System.out.println("[OrderService] Inventory updated: productId=" + product.getId() +
+                        ", newQuantity=" + newQuantity);
+            }
         }
 
         System.out.println("[OrderService] Order checkout complete: orderId=" + savedOrder.getId() +
@@ -457,8 +465,11 @@ public class OrderService {
         // Restore inventory and mark only the cancellable items cancelled
         for (OrderItem item : cancellable) {
             Product product = item.getProduct();
-            product.setQuantity(product.getQuantity() + item.getQuantity());
-            productRepository.save(product);
+            if (product.getProductType() != com.greenloop.model.ProductType.FRESH_HARVEST
+                    && product.getQuantity() != null) {
+                product.setQuantity(product.getQuantity() + item.getQuantity());
+                productRepository.save(product);
+            }
 
             item.setStatus(OrderStatus.CANCELLED);
             orderItemRepository.save(item);

@@ -39,6 +39,21 @@ public class Product {
     private Double price;
     private Integer quantity;
 
+    // FRESH_HARVEST: picked specifically for this order, no fixed stock
+    // ledger, no harvest date (it hasn't happened yet). STORED_STOCK: the
+    // original model — a real quantity on hand, a real harvest date shown
+    // to the customer. Existing products default to STORED_STOCK via
+    // migration, so nothing already listed changes behaviour.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_type", nullable = false)
+    private ProductType productType = ProductType.STORED_STOCK;
+
+    // Not persisted — populated only when returning a single product
+    // (e.g. the public QR-code/detail page) so the customer always sees
+    // who grew it.
+    @Transient
+    private String farmerName;
+
     // AI quality assessment, captured once at listing time (not
     // post-purchase) so a customer can see it BEFORE buying — either
     // browsing online or scanning the product's QR code in a physical
@@ -178,6 +193,22 @@ public class Product {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public ProductType getProductType() {
+        return productType;
+    }
+
+    public void setProductType(ProductType productType) {
+        this.productType = productType;
+    }
+
+    public String getFarmerName() {
+        return farmerName;
+    }
+
+    public void setFarmerName(String farmerName) {
+        this.farmerName = farmerName;
     }
 
     public Double getQualityScore() {

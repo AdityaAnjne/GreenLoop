@@ -229,10 +229,16 @@ export const addProductToBackend = async (productData) => {
     formData.append("cropType", productData.cropType);
     formData.append("soilType", productData.soilType);
     formData.append("pesticides", productData.pesticides);
-    formData.append("harvestDate", productData.harvestDate);
-    // Only append when we actually have a real value — appending a JS
-    // null directly turns it into the literal text "null", which the
-    // backend would otherwise try (and fail) to parse as a number.
+    formData.append("productType", productData.productType);
+    // Only sent for STORED_STOCK — FRESH_HARVEST products don't have
+    // either of these, so nothing is appended at all for them (the
+    // backend enforces this too, this is just keeping the request honest).
+    if (productData.harvestDate) {
+      formData.append("harvestDate", productData.harvestDate);
+    }
+    if (productData.quantity !== null && productData.quantity !== undefined && productData.quantity !== "") {
+      formData.append("quantity", productData.quantity);
+    }
     if (productData.latitude !== null && productData.latitude !== undefined) {
       formData.append("latitude", productData.latitude);
     }
@@ -242,7 +248,6 @@ export const addProductToBackend = async (productData) => {
     // AI quality fields are intentionally NOT sent by the frontend.
     // The backend calls Gemini and generates the authoritative values.
     formData.append("price", productData.price);
-    formData.append("quantity", productData.quantity);
     // NEW: Farmer explicitly chooses which retailer in their network gets this product
     // Guard against undefined so we never send the literal string "undefined"
     formData.append("retailerId", productData.retailerId ?? "");
@@ -263,9 +268,14 @@ export const updateProductInBackend = async (productId, productData) => {
     formData.append("cropType", productData.cropType);
     formData.append("soilType", productData.soilType);
     formData.append("pesticides", productData.pesticides);
-    formData.append("harvestDate", productData.harvestDate);
+    formData.append("productType", productData.productType);
+    if (productData.harvestDate) {
+      formData.append("harvestDate", productData.harvestDate);
+    }
+    if (productData.quantity !== null && productData.quantity !== undefined && productData.quantity !== "") {
+      formData.append("quantity", productData.quantity);
+    }
     formData.append("price", productData.price);
-    formData.append("quantity", productData.quantity);
     // NEW: Retailer is editable after creation too
     if (productData.retailerId)
       formData.append("retailerId", productData.retailerId);

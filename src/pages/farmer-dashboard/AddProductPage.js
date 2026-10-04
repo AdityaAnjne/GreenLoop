@@ -12,6 +12,7 @@ function AddProductPage({ addProduct }) {
     harvestDate: "",
     price: "",
     quantity: "",
+    productType: "",
     imageFile: null,
     retailerId: "",
   });
@@ -47,11 +48,14 @@ function AddProductPage({ addProduct }) {
     if (!form.soilType.trim()) newErrors.soilType = "Soil type is required";
     if (!form.pesticides.trim())
       newErrors.pesticides = "Pesticides info required";
-    if (!form.harvestDate) newErrors.harvestDate = "Harvest date is required";
+    if (!form.productType) newErrors.productType = "Please select a product type";
+    if (form.productType === "STORED_STOCK") {
+      if (!form.harvestDate) newErrors.harvestDate = "Harvest date is required";
+      if (!form.quantity || Number(form.quantity) <= 0)
+        newErrors.quantity = "Enter a valid quantity";
+    }
     if (!form.price || Number(form.price) <= 0)
       newErrors.price = "Enter a valid price";
-    if (!form.quantity || Number(form.quantity) <= 0)
-      newErrors.quantity = "Enter a valid quantity";
     if (!form.imageFile) newErrors.image = "Product image is required";
     // NEW: Retailer selection is mandatory — backend enforces this too
     if (!form.retailerId) newErrors.retailerId = "Please select a retailer";
@@ -113,11 +117,14 @@ function AddProductPage({ addProduct }) {
         cropType: form.cropType,
         soilType: form.soilType,
         pesticides: form.pesticides,
-        harvestDate: form.harvestDate,
+        productType: form.productType,
+        // Only sent for STORED_STOCK — a FRESH_HARVEST product has
+        // neither a fixed quantity nor a harvest date yet.
+        harvestDate: form.productType === "STORED_STOCK" ? form.harvestDate : null,
+        quantity: form.productType === "STORED_STOCK" ? form.quantity : null,
         latitude: lat,
         longitude: lng,
         price: form.price,
-        quantity: form.quantity,
         retailerId: form.retailerId,
       });
 
@@ -243,20 +250,44 @@ function AddProductPage({ addProduct }) {
                 )}
               </div>
 
+              {form.productType === "STORED_STOCK" && (
+                <div className="form-group">
+                  <label htmlFor="harvestDate" className="required">
+                    Harvest Date
+                  </label>
+                  <input
+                    type="date"
+                    id="harvestDate"
+                    name="harvestDate"
+                    value={form.harvestDate}
+                    onChange={handleChange}
+                    className={errors.harvestDate ? "error" : ""}
+                  />
+                  {errors.harvestDate && (
+                    <span className="error-text">{errors.harvestDate}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="harvestDate" className="required">
-                  Harvest Date
+                <label htmlFor="productType" className="required">
+                  Product Type
                 </label>
-                <input
-                  type="date"
-                  id="harvestDate"
-                  name="harvestDate"
-                  value={form.harvestDate}
+                <select
+                  id="productType"
+                  name="productType"
+                  value={form.productType}
                   onChange={handleChange}
-                  className={errors.harvestDate ? "error" : ""}
-                />
-                {errors.harvestDate && (
-                  <span className="error-text">{errors.harvestDate}</span>
+                  className={errors.productType ? "error" : ""}
+                >
+                  <option value="">Select a type</option>
+                  <option value="STORED_STOCK">Stored Stock (ready now)</option>
+                  <option value="FRESH_HARVEST">Fresh Harvest (picked on order)</option>
+                </select>
+                {errors.productType && (
+                  <span className="error-text">{errors.productType}</span>
                 )}
               </div>
             </div>
@@ -284,27 +315,29 @@ function AddProductPage({ addProduct }) {
                 )}
               </div>
 
-              <div className="form-group">
-                <label htmlFor="quantity" className="required">
-                  Available Quantity (kg)
-                </label>
+              {form.productType === "STORED_STOCK" && (
+                <div className="form-group">
+                  <label htmlFor="quantity" className="required">
+                    Available Quantity (kg)
+                  </label>
 
-                <input
-                  type="number"
-                  id="quantity"
-                  name="quantity"
-                  min="1"
-                  step="1"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  className={errors.quantity ? "error" : ""}
-                  placeholder="e.g., 100"
-                />
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    min="1"
+                    step="1"
+                    value={form.quantity}
+                    onChange={handleChange}
+                    className={errors.quantity ? "error" : ""}
+                    placeholder="e.g., 100"
+                  />
 
-                {errors.quantity && (
-                  <span className="error-text">{errors.quantity}</span>
-                )}
-              </div>
+                  {errors.quantity && (
+                    <span className="error-text">{errors.quantity}</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="form-section">

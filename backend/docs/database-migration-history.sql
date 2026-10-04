@@ -167,6 +167,11 @@ ADD COLUMN ai_description VARCHAR(500) NULL,
 ADD COLUMN ai_shelf_life VARCHAR(100) NULL;
 
 
+-- Existing products default to STORED_STOCK, so nothing already listed
+-- changes behaviour — only new FRESH_HARVEST listings get the new rules.
+ALTER TABLE products
+ADD COLUMN product_type VARCHAR(20) NOT NULL DEFAULT 'STORED_STOCK';
+
 -- ============================================================================
 -- Verification — run these any time to confirm both databases are in sync
 -- ============================================================================

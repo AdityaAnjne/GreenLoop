@@ -179,7 +179,11 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
                       <strong>Pesticides:</strong> {prod.pesticides}
                     </div>
                     <div className="meta-item">
-                      <strong>Harvest:</strong> {prod.harvestDate}
+                      {prod.productType === "FRESH_HARVEST" ? (
+                        <span><strong>Type:</strong> Fresh Harvest</span>
+                      ) : (
+                        <span><strong>Harvest:</strong> {prod.harvestDate}</span>
+                      )}
                     </div>
                     <div className="meta-item">
                       <strong>Price:</strong> ₹{(prod.price ?? 0).toFixed(2)}/kg

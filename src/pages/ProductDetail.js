@@ -82,9 +82,25 @@ function ProductDetail() {
                 <span className="meta-badge">
                   Trusted Source
                 </span>
+
+                <span className="meta-badge">
+                  {product.productType === "FRESH_HARVEST"
+                    ? "🌱 Fresh Harvest"
+                    : "📦 Stored Stock"}
+                </span>
               </div>
 
               <div className="product-details-grid">
+
+                <div className="detail-item">
+                  <span className="detail-label">
+                    Farmer
+                  </span>
+
+                  <span className="detail-value">
+                    {product.farmerName || "—"}
+                  </span>
+                </div>
 
                 <div className="detail-item">
                   <span className="detail-label">
@@ -106,15 +122,17 @@ function ProductDetail() {
                   </span>
                 </div>
 
-                <div className="detail-item">
-                  <span className="detail-label">
-                    Harvest Date
-                  </span>
+                {product.productType !== "FRESH_HARVEST" && (
+                  <div className="detail-item">
+                    <span className="detail-label">
+                      Harvest Date
+                    </span>
 
-                  <span className="detail-value">
-                    {product.harvestDate || "—"}
-                  </span>
-                </div>
+                    <span className="detail-value">
+                      {product.harvestDate || "—"}
+                    </span>
+                  </div>
+                )}
 
                 <div className="detail-item">
                   <span className="detail-label">

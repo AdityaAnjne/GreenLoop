@@ -14,15 +14,14 @@ import com.greenloop.repository.UserRepository;
 import com.greenloop.security.JwtUtil;
 import com.greenloop.service.ImageUploadService;
 import com.greenloop.service.ProductService;
+import com.greenloop.service.GeminiService;
+import com.greenloop.service.GeminiService.GeminiQualityResponse;
 
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import com.greenloop.service.GeminiService;
-import com.greenloop.service.GeminiService.GeminiQualityResponse;
 
 /**
  * SECURITY-CRITICAL: Product Controller
@@ -126,14 +125,38 @@ public class ProductController {
             @RequestParam("cropType") String cropType,
             @RequestParam("soilType") String soilType,
             @RequestParam("pesticides") String pesticides,
-            @RequestParam("harvestDate") String harvestDate,
+            @RequestParam(value = "harvestDate", required = false) String harvestDate,
             @RequestParam("price") Double price,
-            @RequestParam("quantity") Integer quantity,
+            @RequestParam(value = "quantity", required = false) Integer quantity,
             @RequestParam(value = "retailerId", required = false) String retailerIdParam,
             @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam("productType") String productTypeParam,
             @RequestHeader("Authorization") String authHeader) {
         try {
             User farmer = getAuthenticatedFarmer(authHeader);
+
+            com.greenloop.model.ProductType productType;
+            try {
+                productType = com.greenloop.model.ProductType.valueOf(productTypeParam.trim().toUpperCase());
+            } catch (Exception e) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "productType must be FRESH_HARVEST or STORED_STOCK"));
+            }
+
+            Integer finalQuantity = null;
+            String finalHarvestDate = null;
+            if (productType == com.greenloop.model.ProductType.STORED_STOCK) {
+                if (quantity == null || quantity <= 0) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Quantity is required for Stored Stock products"));
+                }
+                if (harvestDate == null || harvestDate.isBlank()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Harvest date is required for Stored Stock products"));
+                }
+                finalQuantity = quantity;
+                finalHarvestDate = harvestDate;
+            }
 
             Long retailerId = null;
             if (retailerIdParam != null && !retailerIdParam.isBlank() && !"undefined".equals(retailerIdParam)) {
@@ -156,8 +179,8 @@ public class ProductController {
                     ? imageUploadService.uploadImage(image)
                     : null;
             Product updatedProduct = productService.updateProductForFarmer(
-                    id, farmer.getId(), cropType, soilType, pesticides, harvestDate, imageUrl,
-                    price, quantity, retailerId);
+                    id, farmer.getId(), cropType, soilType, pesticides, finalHarvestDate, imageUrl,
+                    price, finalQuantity, retailerId, productType);
             return ResponseEntity.ok(updatedProduct);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));
@@ -246,12 +269,13 @@ public class ProductController {
             @RequestParam("cropType") String cropType,
             @RequestParam("soilType") String soilType,
             @RequestParam("pesticides") String pesticides,
-            @RequestParam("harvestDate") String harvestDate,
+            @RequestParam(value = "harvestDate", required = false) String harvestDate,
             @RequestParam(value = "latitude", required = false) String latitude,
             @RequestParam(value = "longitude", required = false) String longitude,
             @RequestParam("price") String price,
-            @RequestParam("quantity") String quantity,
+            @RequestParam(value = "quantity", required = false) String quantity,
             @RequestParam("retailerId") String retailerIdParam,
+            @RequestParam("productType") String productTypeParam,
             @RequestHeader("Authorization") String authHeader) {
 
         try {
@@ -314,30 +338,58 @@ public class ProductController {
             }
 
             // ---------------------------------------------------------
-            // 5. Validate price and quantity
+            // 5. Validate product type, then price and (conditionally)
+            //    quantity / harvest date
             // ---------------------------------------------------------
-            double productPrice;
-            int productQuantity;
-
+            com.greenloop.model.ProductType productType;
             try {
-                productPrice = Double.parseDouble(price);
-                productQuantity = Integer.parseInt(quantity);
-            } catch (NumberFormatException e) {
+                productType = com.greenloop.model.ProductType.valueOf(productTypeParam.trim().toUpperCase());
+            } catch (Exception e) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "message",
-                                "Price and quantity must contain valid numbers"));
+                        .body(Map.of("message", "productType must be FRESH_HARVEST or STORED_STOCK"));
             }
 
+            double productPrice;
+            try {
+                productPrice = Double.parseDouble(price);
+            } catch (NumberFormatException e) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Price must be a valid number"));
+            }
             if (productPrice <= 0) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("message", "Price must be greater than 0"));
             }
 
-            if (productQuantity <= 0) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Quantity must be greater than 0"));
+            Integer productQuantity = null;
+            String finalHarvestDate = null;
+
+            if (productType == com.greenloop.model.ProductType.STORED_STOCK) {
+                // Required for stock on hand — a customer can only buy
+                // what's actually sitting in inventory.
+                if (quantity == null || quantity.isBlank()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Quantity is required for Stored Stock products"));
+                }
+                try {
+                    productQuantity = Integer.parseInt(quantity);
+                } catch (NumberFormatException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Quantity must be a valid number"));
+                }
+                if (productQuantity <= 0) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Quantity must be greater than 0"));
+                }
+                if (harvestDate == null || harvestDate.isBlank()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Harvest date is required for Stored Stock products"));
+                }
+                finalHarvestDate = harvestDate;
             }
+            // FRESH_HARVEST: neither field is stored, even if the client
+            // sent one — picked specifically for the order, not tracked as
+            // a fixed stock count, and has no harvest date yet.
 
             // ---------------------------------------------------------
             // 6. AUTHORITATIVE AI QUALITY CHECK
@@ -345,30 +397,26 @@ public class ProductController {
             // The frontend does NOT provide the quality score anymore.
             // The backend sends the uploaded image directly to Gemini.
             // ---------------------------------------------------------
-            String base64Image = Base64.getEncoder()
-                    .encodeToString(image.getBytes());
-
-            GeminiQualityResponse aiResult = geminiService.analyzeImage(
-                    cropType,
-                    base64Image,
-                    image.getContentType());
+            String base64Image = Base64.getEncoder().encodeToString(image.getBytes());
+            GeminiQualityResponse aiResult;
+            try {
+                aiResult = geminiService.analyzeImage(cropType, base64Image);
+            } catch (Exception aiEx) {
+                System.err.println("[ProductController] AI quality check failed: " + aiEx.getMessage());
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                        "message",
+                        "AI quality check is currently unavailable, so this product cannot be listed right now. Please try again in a few minutes."));
+            }
 
             // ---------------------------------------------------------
             // 7. AI quality gate
             // ---------------------------------------------------------
             if (!aiResult.consumable()) {
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                        .body(Map.of(
-                                "message",
-                                "This product did not pass the AI quality check and cannot be listed.",
-                                "analysis",
-                                aiResult.analysis(),
-                                "quality",
-                                aiResult.quality(),
-                                "rating",
-                                aiResult.rating(),
-                                "freshnessPercent",
-                                aiResult.freshnessPercent()));
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message",
+                        "This product did not pass the AI quality check and cannot be listed. AI feedback: \""
+                                + (aiResult.analysis() != null ? aiResult.analysis() : "Quality below acceptable threshold.")
+                                + "\""));
             }
 
             // ---------------------------------------------------------
@@ -389,6 +437,8 @@ public class ProductController {
 
             product.setLatitude(parseNullableDouble(latitude));
             product.setLongitude(parseNullableDouble(longitude));
+            product.setProductType(productType);
+            product.setHarvestDate(finalHarvestDate);
 
             // IMPORTANT:
             // These values come from Gemini, NOT from the frontend.
