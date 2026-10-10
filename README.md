@@ -1,8 +1,8 @@
 # GreenLoop
 
-**A farm-to-table marketplace where every product carries its own proof of quality and origin.**
+**A farm-to-table marketplace where every product carries its own proof of quality, origin, and how it was grown.**
 
-GreenLoop connects **farmers, retailers, distributors and customers** on one platform. Farmers list produce with a photo, an AI model assesses it *at listing time*, and customers see the result — plus a full order timeline — before and after they buy.
+GreenLoop connects **farmers, retailers, distributors and customers** on one platform. Farmers list produce with a photo; an AI model assesses it *server-side, at listing time*; and customers see the result — plus who grew it, how it was sourced, and a full order timeline — before and after they buy.
 
 - **Live app:** https://green-loop-zeta.vercel.app
 - **API:** https://greenloop-ise7.onrender.com
@@ -14,48 +14,70 @@ GreenLoop connects **farmers, retailers, distributors and customers** on one pla
 
 ## Why this project exists
 
-Buying fresh produce online has two trust problems: you can't judge freshness from a listing, and you can't see where the product came from or who handled it. GreenLoop tackles both:
+Buying fresh produce online has three trust problems: you can't judge freshness from a listing, you don't know who actually grew it, and you can't tell whether what you're buying is genuinely fresh or pulled from a warehouse shelf. GreenLoop addresses all three:
 
-1. **Quality is assessed when the product is listed**, on the farmer's actual photo, and saved permanently on the product record — so customers see it *before* buying, not after.
-2. **Every order item has its own timeline** (placed → confirmed → packed → shipped → delivered) with timestamps and the farm's location.
+1. **Quality is assessed server-side, at the moment a product is listed**, on the farmer's actual photo — not after purchase, and not trusting a number the client could fabricate.
+2. **Every product shows the farmer's name**, on the marketplace, the detail panel, and the public QR-linked page.
+3. **Every product declares how it's sourced** — picked fresh for this specific order, or drawn from stock already on hand — and the app behaves differently for each.
 
 ---
 
 ## Features
 
 ### Farmer
-- Add, edit and delete products with a photo, soil type, pesticide info, harvest date and price
+- Add, edit and delete products with a photo, soil type, pesticide info and price
+- Choose a **product type** per listing:
+  - **Fresh Harvest** — picked specifically for the order; no fixed stock count, no harvest date (see *Product types* below)
+  - **Stored Stock** — the conventional model: a real quantity on hand and a real harvest date, shown to the customer
 - Real GPS location captured from the browser when a product is listed (stored as null if permission is denied)
-- **AI quality gate:** the photo is analysed by Google Gemini on submit. A product is **not listed** if the AI call fails or judges it unfit for sale
+- **Server-side AI quality gate:** the uploaded photo is analysed by Google Gemini on the backend, not the browser. A product is **not listed at all** if the AI call fails or judges it unfit for sale — and the result can't be forged by a direct API call, since the client never supplies it
 - Assign each product to a retailer
 - Downloadable **QR code** per product that links to its public detail page
 
 ### Customer
-- Marketplace with AI-derived **freshness %** and a **star rating derived from that freshness**, so the two always agree
-- **View Details** panel: health benefit, description and shelf life (AI-generated per product, with a static fallback for older listings)
+- Marketplace showing the **farmer's name** on every product, plus AI-derived **freshness %** and a **star rating derived from that freshness**, so the two always agree
+- **View Details** panel: farmer name, health benefit, description and shelf life (AI-generated per product at listing time, with a static fallback for older listings)
 - Cart with a per-item quantity stepper — default 1 kg, **maximum 10 kg per item** (enforced in the UI *and* on the server)
 - Checkout with a delivery address (remembered as the default for next time, still editable per order) and payment-method selector
 - **My Orders** auto-refreshes every 15 seconds while open
 - **Track this order** timeline with farm origin and timestamps
-- **Cancel** an order while its items are still `PLACED` or `CONFIRMED`
+- **Cancel** an order while its items are still `PLACED` or `CONFIRMED` — scoped per item, so one retailer's slice being packed doesn't block cancelling another retailer's still-untouched item in the same order
 - Wishlist (in-session only — see limitations)
 
 ### Retailer
 - Sees **only their own items** in any order, even in a multi-retailer checkout
-- Confirms their items and chooses a distributor
 - Sees the delivery address to help pick a distributor whose area covers it
+- Confirms their items and chooses a distributor
 
 ### Distributor
 - Sees **only the items assigned to them**
 - Packs, ships and delivers; sees the delivery address
 
 ### Admin
-- Separate admin role with its own dashboard and admin-only endpoints
+- Separate admin role with its own dashboard
+- Views users without ever having password hashes sent to the browser
 
 ### Platform
-- JWT authentication with role-based access control
+- JWT authentication with role-based access control, enforced at the Spring Security layer (not just hidden in the UI)
 - Dark / light theme
 - Product images stored on Cloudinary
+
+---
+
+## Product types: Fresh Harvest vs. Stored Stock
+
+This is GreenLoop's core differentiator from a conventional quick-commerce app. Every product declares one of two types, and the app behaves differently for each:
+
+| | **Fresh Harvest** | **Stored Stock** |
+|---|---|---|
+| Meaning | Picked specifically once ordered | Already harvested, sitting in inventory |
+| Quantity | Not collected, not stored, not shown — effectively unlimited | Required; decremented on order, restored on cancel |
+| Harvest date | Not collected, not stored, not shown (hasn't happened yet) | Required; shown to the customer |
+| Stock check at checkout | Skipped entirely | Enforced — rejects if insufficient |
+
+A single order can mix both kinds. Part of the catalog can behave like a conventional warehouse-backed quick-commerce app (good for grains, pulses — things that don't lose quality sitting on a shelf), while another part behaves like a genuine farm-to-order model (good for produce where freshness really matters) — all on one platform, visible to the customer as a clear badge on every product.
+
+**Suggested next step, not yet built:** tie this into the existing order timeline — a Fresh Harvest item's first event could read *"Received — being harvested for you"* instead of a generic "Order placed," making the distinction visible in real time, not just as a static badge.
 
 ---
 
@@ -67,7 +89,7 @@ Buying fresh produce online has two trust problems: you can't judge freshness fr
 | Backend | Java 21, Spring Boot 3.5, Spring MVC, Spring Security, Spring Data JPA / Hibernate 6 |
 | Auth | JWT (jjwt 0.11.5), BCrypt password hashing |
 | Database | MySQL 8.4 (Aiven in production) |
-| AI | Google Gemini API (vision + structured JSON output) |
+| AI | Google Gemini API (vision + structured JSON output), called server-side only |
 | Media | Cloudinary |
 | Build / deploy | Maven wrapper, Docker (multi-stage), Render (API), Vercel (frontend) |
 
@@ -78,22 +100,22 @@ Buying fresh produce online has two trust problems: you can't judge freshness fr
 ### 1. Fulfilment state lives on the order **item**, not the order
 A single checkout can contain products from several retailers. Tracking status and distributor on the whole `Order` meant any retailer with one item in it could confirm *every* retailer's items and choose a distributor for goods that weren't theirs.
 
-Now `OrderItem` owns `status` and `distributorId`. Each retailer's slice moves through the lifecycle independently, and `Order.recomputeStatus()` derives the customer-facing status as the *slowest active item's stage*.
+`OrderItem` owns `status` and `distributorId`. Each retailer's slice moves through the lifecycle independently, and `Order.recomputeStatus()` derives the customer-facing status as the *slowest active item's stage*. Cancellation is scoped the same way — cancelling an order only touches the items still `PLACED`/`CONFIRMED`, leaving items another retailer has already progressed untouched rather than rejecting the whole request.
 
 ### 2. API responses are scoped to the caller
-Retailers, distributors and farmers receive only their own items, subtotal and status — never another party's. Customers and admins see the full order. Access checks return "not found" rather than "forbidden" so order existence isn't leaked.
+Retailers, distributors and farmers receive only their own items, subtotal and status — never another party's. Customers and admins see the full order. Access checks return "not found" rather than "forbidden" so order existence isn't leaked. Admin's user-listing endpoint returns a DTO that never includes password hashes, even bcrypt-hashed ones, in the API response.
 
-### 3. AI runs at listing time, not after purchase
-An earlier design let customers run a quality check *after* buying — useless if the result is bad. The check now runs once, on the farmer's photo, and the score, freshness %, analysis, health benefit, description and shelf life are saved on the product. The one Gemini call returns all of it, so there is no extra API cost.
+### 3. The AI quality gate is enforced server-side, not trusted from the client
+An earlier design had the browser call Gemini directly and submit the result as ordinary form fields — meaning a direct API call could submit a fabricated `qualityScore` with no real check ever happening. The backend now receives the raw image, calls Gemini itself, and is the sole authority on the result. A listing is refused outright if the AI call fails or judges the product unfit for sale; the client has no way to influence or bypass that outcome.
 
 ### 4. QR code → public product page
-Each product's QR code opens `/product/{id}`, which shows origin and quality details without logging in. Printed on packaging, it acts as proof of provenance for the delivered box.
+Each product's QR code opens `/product/{id}`, which shows origin, the farmer's name, product type and quality details without logging in. Printed on packaging, it acts as proof of provenance for the delivered box.
 
 ### 5. Append-only order history
 `order_item_status_events` records one row per status transition, so the timeline is real history rather than just the current status.
 
 ### 6. Schema validated, not auto-altered
-`spring.jpa.hibernate.ddl-auto=validate` — the app refuses to boot if entities and schema drift apart, instead of silently altering a production database.
+`spring.jpa.hibernate.ddl-auto=validate` — the app refuses to boot if entities and schema drift apart, instead of silently altering a production database. All schema changes are applied by hand, in order, and documented.
 
 ---
 
@@ -102,7 +124,7 @@ Each product's QR code opens `/product/{id}`, which shows origin and quality det
 ```
 PLACED ──► CONFIRMED ──► PACKED ──► SHIPPED ──► DELIVERED
   │            │
-  └────────────┴──► CANCELLED   (customer, only before PACKED)
+  └────────────┴──► CANCELLED   (customer, only before PACKED, scoped per item)
 ```
 
 | Transition | Done by | Scope |
@@ -122,16 +144,16 @@ GreenLoop/
 │   │   └── farmer-dashboard/   # Products list, add product, edit product
 │   ├── components/             # Shared UI (navbar, etc.)
 │   ├── api/axiosInstance.js    # Axios instance + auth interceptor
-│   ├── services/aiService.js   # Calls the backend AI endpoint
 │   ├── context/                # Theme context
 │   └── styles/                 # CSS
 ├── public/
 ├── backend/                    # Spring Boot API
 │   ├── src/main/java/com/greenloop/
 │   │   ├── controller/         # REST controllers (Spring MVC)
-│   │   ├── service/            # Business logic (orders, Gemini)
+│   │   ├── service/            # Business logic (orders, products, Gemini)
 │   │   ├── repository/         # Spring Data JPA repositories
-│   │   ├── model/              # JPA entities
+│   │   ├── model/              # JPA entities and enums
+│   │   ├── dto/                # Response DTOs (e.g. PublicUserDto — never exposes password hashes)
 │   │   ├── security/           # SecurityConfig, JwtAuthFilter, JwtUtil
 │   │   └── config/             # Configuration and dev-only seeder
 │   ├── src/main/resources/application.properties
@@ -156,7 +178,7 @@ GreenLoop/
 ```sql
 CREATE DATABASE greenloop_auth;
 ```
-The backend validates the schema on startup. Apply the schema described in `backend/docs/database-migration-history.sql` (a documented, ordered record of every schema change) to a fresh database before first run.
+The backend validates the schema on startup. Apply the schema described in `backend/docs/database-migration-history.sql` (a documented, ordered record of every schema change, including the reasoning behind each) to a fresh database before first run.
 
 ### 2. Backend configuration
 
@@ -173,7 +195,7 @@ The backend validates the schema on startup. Apply the schema described in `back
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Image storage | *(none)* |
 | `PORT` | Server port | `8080` |
 
-The Gemini model is set with the `gemini.model` property. **Model names change and older ones are retired**, so check Google AI Studio for a currently available model before deploying.
+The Gemini model is set with the `gemini.model` property. **Model names change and older ones are retired** — check Google AI Studio or Google's current model list for a name that's actually available before deploying; a deprecated model name fails with a clear `404` naming its replacement.
 
 Never commit real secrets — `.env` is git-ignored; use `.env.example` as a template.
 
@@ -200,7 +222,7 @@ App available at `http://localhost:3000`. Point it at your API with:
 ```
 REACT_APP_API_BASE_URL=http://localhost:8080
 ```
-(defaults to `http://localhost:8080` if unset). Set `REACT_APP_USE_MOCK_AI=true` only to develop the frontend without calling Gemini.
+(defaults to `http://localhost:8080` if unset).
 
 ---
 
@@ -223,7 +245,7 @@ Eight tables:
 | Table | Purpose |
 |---|---|
 | `users` | All roles (farmer, retailer, distributor, customer, admin) plus the customer's saved default address |
-| `products` | Listings, including AI quality score, freshness %, analysis and AI-generated details |
+| `products` | Listings, including product type, AI quality score, freshness %, analysis and AI-generated details |
 | `orders` | Order header: customer, total, derived status, delivery address/coordinates, payment method |
 | `order_items` | Per-item retailer, farmer, **status, distributor** |
 | `order_item_status_events` | Append-only status history behind the timeline |
@@ -239,9 +261,8 @@ Schema changes were applied by hand and are recorded, in order and with the reas
 
 | Area | Endpoints |
 |---|---|
-| Users | `POST /api/users/register`, `POST /api/users/login`, `GET /api/users/me` |
-| Products | `POST /api/products/add` (multipart), `GET /api/products/customer/products`, `GET /api/products/farmer/me`, `GET /api/products/{id}`, `PUT` / `DELETE /api/products/{id}` |
-| AI | `POST /api/ai/quality-check` |
+| Users | `POST /api/users/register`, `POST /api/users/login`, `GET /api/users/me`, `GET /api/users/all` (admin, password-free) |
+| Products | `POST /api/products/add` (multipart; runs the AI gate server-side), `GET /api/products/customer/products`, `GET /api/products/farmer/me`, `GET /api/products/{id}`, `PUT` / `DELETE /api/products/{id}` |
 | Orders | `POST /api/orders`, `GET /api/orders/{customer\|retailer\|distributor\|farmer}`, `GET /api/orders/{id}`, `GET /api/orders/{id}/trace` |
 | Fulfilment | `PUT /api/orders/{id}/confirm`, `/pack`, `/ship`, `/deliver`, `/cancel` |
 
@@ -252,10 +273,9 @@ Protected endpoints expect `Authorization: Bearer <jwt>`.
 ## Known limitations
 
 - **Payment:** only Cash on Delivery is functional. UPI / Card / Wallet are shown as "Coming soon".
-- **AI gate is strict by design:** if Gemini is unavailable, quota-limited or returns an error, a farmer **cannot list a product** until it recovers. The backend retries transient `503` errors, but free-tier quota and availability are outside the app's control.
+- **AI gate is strict by design:** if Gemini is unavailable, quota-limited or returns an error, a farmer **cannot list a product** until it recovers. The backend retries transient `503` errors once; free-tier quota and model availability are outside the app's control.
 - **Wishlist** lives in browser memory only and is lost on refresh or logout.
 - **No live delivery map** — the timeline shows status history, not a moving location.
-- **Stock:** farmers no longer enter a quantity; a large internal placeholder keeps the stock-check logic working, and the real limit is the 10 kg-per-item order cap.
 - **No automated test suite** yet.
 - **Hosting:** free-tier cold starts on the API; free-tier Gemini limits.
 
@@ -263,9 +283,9 @@ Protected endpoints expect `Authorization: Bearer <jwt>`.
 
 ## Roadmap
 
+- Surface the Fresh Harvest / Stored Stock distinction in the order timeline itself (see *Product types* above)
 - Live delivery tracking (delivery address and coordinates are already captured)
 - Real payment gateway (e.g. Razorpay)
-- **Harvest-on-demand fulfilment:** let a farmer fulfil an order from existing stock or harvest against confirmed demand, shown as a step in the order timeline
 - Persist the wishlist server-side
 - Map-based farm discovery using the stored coordinates
 - Farmer / admin analytics dashboard
@@ -275,7 +295,7 @@ Protected endpoints expect `Authorization: Bearer <jwt>`.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md). Passwords are BCrypt-hashed, all secrets come from environment variables, and endpoint access is enforced server-side by Spring Security roles — not just hidden in the UI.
+See [SECURITY.md](SECURITY.md). Passwords are BCrypt-hashed and never returned to the client in any form. All secrets come from environment variables, endpoint access is enforced server-side by Spring Security roles, and the AI quality gate is enforced by the backend, not trusted from client input.
 
 ---
 
