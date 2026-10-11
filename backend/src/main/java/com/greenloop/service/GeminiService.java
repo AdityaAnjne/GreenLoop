@@ -76,10 +76,11 @@ public class GeminiService {
                                         Map.entry("justification", Map.of("type", "STRING")),
                                         Map.entry("healthBenefit", Map.of("type", "STRING")),
                                         Map.entry("productDescription", Map.of("type", "STRING")),
-                                        Map.entry("shelfLifeEstimate", Map.of("type", "STRING"))),
+                                        Map.entry("shelfLifeEstimate", Map.of("type", "STRING")),
+                                        Map.entry("freshnessScore", Map.of("type", "INTEGER"))),
                                 "propertyOrdering",
                                 List.of("productName", "freshnessStatus", "overallQuality", "confidence",
-                                        "justification", "healthBenefit", "productDescription", "shelfLifeEstimate"))));
+                                        "justification", "healthBenefit", "productDescription", "shelfLifeEstimate", "freshnessScore"))));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -148,7 +149,10 @@ public class GeminiService {
             double rating = qualityToRating(overallQuality);
             boolean consumable = isConsumable(overallQuality);
             int confidence = (int) Math.round(Math.min(Math.max(confidenceScore, 0.0), 1.0) * 100);
-            int freshnessPercent = deriveFreshnessPercent(freshnessStatus, rating);
+            int freshnessScore = modelJson.path("freshnessScore").asInt(-1);
+            int freshnessPercent = (freshnessScore >= 0 && freshnessScore <= 100)
+                    ? freshnessScore
+                    : deriveFreshnessPercent(freshnessStatus, rating);
 
             return new GeminiQualityResponse(
                     productName,
@@ -175,6 +179,10 @@ public class GeminiService {
                 "health benefit, one short 1-2 sentence customer-facing description of the produce (how it's " +
                 "typically used/eaten), and a realistic estimated shelf life for fresh produce of this type " +
                 "(e.g. '5-7 days', '2-3 weeks'). " +
+                "Also provide freshnessScore: an integer from 0 to 100 estimating how fresh this specific item " +
+                "looks, based on visible cues such as colour vibrancy, firmness or wilting, bruising, blemishes, " +
+                "mould and surface shine. Use the full range and avoid defaulting to round numbers, because two " +
+                "different photos should rarely receive the same score. " +
                 "Respond ONLY with a JSON object following this schema.";
     }
 
