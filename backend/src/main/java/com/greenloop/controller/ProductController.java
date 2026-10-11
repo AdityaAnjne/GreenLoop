@@ -527,11 +527,6 @@ public class ProductController {
         }
     }
 
-    /**
-     * @param farmerId
-     * @param cropType
-     * @return
-     */
     private Double parseNullableDouble(String value) {
         if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim())) {
             return null;
@@ -541,30 +536,6 @@ public class ProductController {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    private Integer parseNullableInt(String value) {
-        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim())) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Long determineRetailerForProduct(Long farmerId, String cropType) {
-
-        List<User> retailers = userRepository.findAll();
-
-        for (User user : retailers) {
-            if ("retailer".equalsIgnoreCase(user.getRole())) {
-                return user.getId();
-            }
-        }
-
-        return null;
     }
 
     private User getAuthenticatedFarmer(String authHeader) {

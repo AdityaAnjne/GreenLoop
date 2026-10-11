@@ -43,7 +43,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("FARMER")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("FARMER")
                         .requestMatchers(HttpMethod.GET, "/api/products/farmer/**").hasRole("FARMER")
-                        .requestMatchers("/api/ai/**").authenticated()
 
                         // SECURITY: Public endpoints
                         .requestMatchers(

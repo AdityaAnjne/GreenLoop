@@ -48,7 +48,7 @@
       "last 1 safari version"
     ]
   },
-  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
+  "description": "GreenLoop: a farm-to-table marketplace connecting farmers, retailers, distributors and customers.",
   "main": "index.js",
   "keywords": [],
   "author": "",
