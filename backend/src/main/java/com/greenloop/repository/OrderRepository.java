@@ -120,7 +120,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH o.customer
         JOIN o.items oi
         WHERE oi.distributorId = :distributorId
-        AND oi.status IN ('CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED')
+        AND oi.status IN ('CONFIRMED', 'HARVESTED', 'PACKED', 'SHIPPED', 'DELIVERED')
         ORDER BY o.createdAt DESC
     """)
     List<Order> findOrdersByDistributor(@Param("distributorId") Long distributorId);
