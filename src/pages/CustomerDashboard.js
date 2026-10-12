@@ -35,6 +35,8 @@ const CustomerDashboard = () => {
 
   const [cart, setCart] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [wishlistError, setWishlistError] = useState("");
+  const [wishlistPending, setWishlistPending] = useState(() => new Set());
   const [customerLocation, setCustomerLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
@@ -326,10 +328,11 @@ const CustomerDashboard = () => {
       setProducts(productsFromApi);
       try {
         const savedResponse = await axiosInstance.get("/api/users/me/wishlist");
-        const savedIds = new Set(savedResponse.data || []);
-        setWishlist(productsFromApi.filter((product) => savedIds.has(product.id)));
+        const savedIds = new Set((savedResponse.data || []).map(String));
+        setWishlist(productsFromApi.filter((product) => savedIds.has(String(product.id))));
       } catch (wishlistError) {
         console.error("[CustomerDashboard] wishlist fetch failed", wishlistError);
+        setWishlistError("Could not load your saved items. Please sign in again or refresh.");
       }
     } catch (primaryError) {
       console.log("[CustomerDashboard] primary fetch error", primaryError);
@@ -367,8 +370,11 @@ const CustomerDashboard = () => {
   };
 
   const toggleWishlist = async (product) => {
+    if (wishlistPending.has(product.id)) return;
     const alreadySaved = wishlist.some((item) => item.id === product.id);
     const previousWishlist = wishlist;
+    setWishlistError("");
+    setWishlistPending((pending) => new Set(pending).add(product.id));
     if (alreadySaved) {
       setWishlist(wishlist.filter((item) => item.id !== product.id));
     } else {
@@ -383,6 +389,15 @@ const CustomerDashboard = () => {
     } catch (wishlistError) {
       setWishlist(previousWishlist);
       console.error("[CustomerDashboard] wishlist update failed", wishlistError);
+      setWishlistError(
+        wishlistError?.message || "Could not update your wishlist. Please sign in again and retry.",
+      );
+    } finally {
+      setWishlistPending((pending) => {
+        const next = new Set(pending);
+        next.delete(product.id);
+        return next;
+      });
     }
   };
 
@@ -1020,6 +1035,11 @@ const CustomerDashboard = () => {
               >
                 Fresh produce from local farms
               </p>
+              {wishlistError && (
+                <p role="alert" className="mt-2 text-sm text-red-600">
+                  {wishlistError}
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <button
@@ -1196,6 +1216,7 @@ const CustomerDashboard = () => {
                       {/* Wishlist button */}
                       <button
                         onClick={() => toggleWishlist(product)}
+                        disabled={wishlistPending.has(product.id)}
                         className={`absolute top-3 right-3 p-2 shadow-sm rounded-full hover:bg-white transition ${
                           isDark ? "bg-slate-700" : "bg-white/95"
                         }`}
