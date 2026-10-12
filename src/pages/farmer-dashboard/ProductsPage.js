@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { deleteProductFromBackend } from "../api";
+import axiosInstance from "../../api/axiosInstance";
 import "../../styles/products.css";
 
 function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
@@ -9,6 +10,9 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredProducts, setFilteredProducts] = useState(products);
   const [loading, setLoading] = useState(true);
+  const [farmerOrders, setFarmerOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState(false);
 
   // Simulated loading effect
   useEffect(() => {
@@ -19,6 +23,51 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
 
     return () => clearTimeout(timer);
   }, [products]);
+
+  const fetchFarmerOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const response = await axiosInstance.get("/api/orders/farmer");
+      setFarmerOrders(Array.isArray(response.data) ? response.data : []);
+      setOrdersError(false);
+    } catch (error) {
+      console.error("Failed to load farmer sales summary:", error);
+      setFarmerOrders([]);
+      setOrdersError(true);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFarmerOrders();
+  }, [fetchFarmerOrders]);
+
+  const deliveredItems = farmerOrders.flatMap((order) => order.items || [])
+    .filter((item) => item.status === "DELIVERED");
+  const fulfilledRevenue = deliveredItems.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+  const fulfilledQuantity = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const activeOrderCount = farmerOrders.filter((order) =>
+    (order.items || []).some((item) => !["DELIVERED", "CANCELLED"].includes(item.status)),
+  ).length;
+  const cropSales = deliveredItems.reduce((totals, item) => {
+    const name = item.productName || "Produce";
+    totals[name] = (totals[name] || 0) + Number(item.quantity || 0);
+    return totals;
+  }, {});
+  const topCrop = Object.entries(cropSales).sort((a, b) => b[1] - a[1])[0];
+  const freshHarvestOrders = farmerOrders.filter((order) =>
+    (order.items || []).some((item) => item.productTypeAtPurchase === "FRESH_HARVEST" && item.status === "CONFIRMED"),
+  );
+
+  const confirmHarvest = async (orderId) => {
+    try {
+      await axiosInstance.put(`/api/orders/${orderId}/harvest`);
+      await fetchFarmerOrders();
+    } catch (error) {
+      window.alert(error.message || "Could not confirm harvest. Please try again.");
+    }
+  };
 
   // Dynamic Base URL - always reflects wherever this app is actually running
   const getBaseUrl = () => {
@@ -97,6 +146,42 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
           <p>Manage your agricultural products and track their journey</p>
         </div>
 
+        <section aria-label="Sales overview" style={{ margin: "1.5rem 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "1rem" }}>
+          {[
+            { label: "Delivered revenue", value: `₹${fulfilledRevenue.toFixed(2)}`, detail: "Completed orders · all time" },
+            { label: "Delivered produce", value: `${fulfilledQuantity} kg`, detail: "Quantity fulfilled · all time" },
+            { label: "Active orders", value: activeOrderCount, detail: "Not yet delivered or cancelled" },
+            { label: "Top-selling crop", value: topCrop ? topCrop[0] : "—", detail: topCrop ? `${topCrop[1]} kg delivered` : "No completed sales yet" },
+          ].map((stat) => (
+            <div key={stat.label} style={{ background: "var(--bg-card, #fff)", border: "1px solid var(--border-color, #e5e7eb)", borderRadius: "12px", padding: "1rem 1.1rem", boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)" }}>
+              <div style={{ color: "var(--text-muted, #64748b)", fontSize: "0.8rem", fontWeight: 600 }}>{stat.label}</div>
+              <div style={{ color: "var(--text-primary, #111827)", fontSize: "1.45rem", fontWeight: 750, margin: "0.35rem 0" }}>{ordersLoading ? "…" : ordersError ? "Unavailable" : stat.value}</div>
+              <div style={{ color: "var(--text-muted, #64748b)", fontSize: "0.72rem" }}>{ordersError ? "Could not load sales data" : stat.detail}</div>
+            </div>
+          ))}
+        </section>
+
+        {freshHarvestOrders.length > 0 && (
+          <section aria-label="Fresh Harvest orders" style={{ margin: "1.5rem 0", background: "var(--bg-card, #fff)", border: "1px solid var(--border-color, #e5e7eb)", borderRadius: "12px", padding: "1.25rem" }}>
+            <h2 style={{ color: "var(--text-primary)", fontSize: "1.15rem", fontWeight: 700, marginBottom: "0.75rem" }}>Fresh Harvest orders to complete</h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: "1rem" }}>Confirm when the produce has actually been harvested. This updates the customer’s order timeline.</p>
+            <div style={{ display: "grid", gap: "0.65rem" }}>
+              {freshHarvestOrders.map((order) => {
+                const items = (order.items || []).filter((item) => item.productTypeAtPurchase === "FRESH_HARVEST" && item.status === "CONFIRMED");
+                return (
+                  <div key={order.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", borderTop: "1px solid var(--border-color)", paddingTop: "0.75rem" }}>
+                    <div style={{ color: "var(--text-primary)" }}>
+                      <strong>Order #{order.id}</strong>
+                      <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem" }}>{items.map((item) => `${item.productName} × ${item.quantity} kg`).join(", ")}</span>
+                    </div>
+                    <button onClick={() => confirmHarvest(order.id)} className="btn-add-product">Confirm harvested</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* 🔹 Actions Bar (logout handled in global Navbar) */}
         <div className="products-actions">
           <input
@@ -172,6 +257,16 @@ function ProductsPage({ products = [], onDeleteProduct, onRefreshProducts }) {
                   <h3 className="product-name">{prod.cropType}</h3>
 
                   <div className="product-meta">
+                    {prod.productType !== "FRESH_HARVEST" && prod.quantity != null && Number.isFinite(Number(prod.quantity)) && (
+                      <div className="meta-item">
+                        <strong>Stock:</strong> {prod.quantity} kg
+                        {prod.quantity <= 5 && (
+                          <span style={{ marginLeft: "0.5rem", color: prod.quantity <= 2 ? "#b91c1c" : "#b45309", fontWeight: 700 }}>
+                            {prod.quantity <= 2 ? "Replenish soon" : "Low stock"}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="meta-item">
                       <strong>Soil:</strong> {prod.soilType}
                     </div>

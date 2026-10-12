@@ -183,3 +183,30 @@ ADD COLUMN product_type VARCHAR(20) NOT NULL DEFAULT 'STORED_STOCK';
 -- SELECT COUNT(*) FROM retailer_distributors;
 -- SELECT COUNT(*) FROM farmer_retailers;
 -- SELECT COUNT(*) FROM order_item_status_events;
+
+-- ============================================================================
+-- 11. order_items — snapshot fulfilment type at checkout
+-- ============================================================================
+-- WHY: A product listing can be edited after purchase. The order timeline
+-- must retain whether the customer bought Fresh Harvest or Stored Stock as
+-- promised at checkout. Existing rows are treated as Stored Stock, matching
+-- the legacy behaviour before this distinction was introduced.
+
+ALTER TABLE order_items
+ADD COLUMN product_type_at_purchase VARCHAR(20) NOT NULL DEFAULT 'STORED_STOCK';
+
+-- ============================================================================
+-- 12. customer_wishlist — persist customer saved products
+-- ============================================================================
+-- WHY: Wishlists previously lived only in React memory and vanished on
+-- refresh/logout. Product references intentionally use IDs without a
+-- foreign key so deleting a product does not block farmer product cleanup.
+
+CREATE TABLE customer_wishlist (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT uk_customer_wishlist_user_product UNIQUE (user_id, product_id),
+    INDEX idx_customer_wishlist_user (user_id)
+);

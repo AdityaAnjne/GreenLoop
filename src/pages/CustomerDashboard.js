@@ -9,6 +9,7 @@ import {
   X,
   CheckCircle2,
   RefreshCw,
+  MapPin,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import axiosInstance from "../api/axiosInstance";
@@ -34,6 +35,9 @@ const CustomerDashboard = () => {
 
   const [cart, setCart] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [customerLocation, setCustomerLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [myOrders, setMyOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -320,6 +324,13 @@ const CustomerDashboard = () => {
         "/api/products/customer/products",
       );
       setProducts(productsFromApi);
+      try {
+        const savedResponse = await axiosInstance.get("/api/users/me/wishlist");
+        const savedIds = new Set(savedResponse.data || []);
+        setWishlist(productsFromApi.filter((product) => savedIds.has(product.id)));
+      } catch (wishlistError) {
+        console.error("[CustomerDashboard] wishlist fetch failed", wishlistError);
+      }
     } catch (primaryError) {
       console.log("[CustomerDashboard] primary fetch error", primaryError);
 
@@ -355,11 +366,23 @@ const CustomerDashboard = () => {
     }
   };
 
-  const toggleWishlist = (product) => {
-    if (wishlist.find((item) => item.id === product.id)) {
+  const toggleWishlist = async (product) => {
+    const alreadySaved = wishlist.some((item) => item.id === product.id);
+    const previousWishlist = wishlist;
+    if (alreadySaved) {
       setWishlist(wishlist.filter((item) => item.id !== product.id));
     } else {
       setWishlist([...wishlist, product]);
+    }
+    try {
+      if (alreadySaved) {
+        await axiosInstance.delete(`/api/users/me/wishlist/${product.id}`);
+      } else {
+        await axiosInstance.post(`/api/users/me/wishlist/${product.id}`);
+      }
+    } catch (wishlistError) {
+      setWishlist(previousWishlist);
+      console.error("[CustomerDashboard] wishlist update failed", wishlistError);
     }
   };
 
@@ -550,6 +573,47 @@ const CustomerDashboard = () => {
       ]),
     ),
   ).map(([, v]) => v);
+
+  const distanceKm = (lat1, lon1, lat2, lon2) => {
+    const radians = (degrees) => (degrees * Math.PI) / 180;
+    const dLat = radians(lat2 - lat1);
+    const dLon = radians(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(radians(lat1)) * Math.cos(radians(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const productsByDistance = customerLocation
+    ? [...dedupedProducts].sort((a, b) => {
+        const aHasLocation = a.latitude != null && a.longitude != null;
+        const bHasLocation = b.latitude != null && b.longitude != null;
+        if (aHasLocation !== bHasLocation) return aHasLocation ? -1 : 1;
+        if (!aHasLocation) return 0;
+        return distanceKm(customerLocation.lat, customerLocation.lng, a.latitude, a.longitude) -
+          distanceKm(customerLocation.lat, customerLocation.lng, b.latitude, b.longitude);
+      })
+    : dedupedProducts;
+
+  const enableNearbyFarms = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage("Location is not available in this browser.");
+      return;
+    }
+    setLocationLoading(true);
+    setLocationMessage("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCustomerLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationMessage("Nearby farms are sorted by distance. Your location stays in this browser.");
+        setLocationLoading(false);
+      },
+      () => {
+        setLocationMessage("Location access was unavailable. You can still browse all products.");
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  };
 
   return (
     // Dark mode applied to entire page wrapper with smooth transition
@@ -1056,6 +1120,20 @@ const CustomerDashboard = () => {
                 Available Products
               </h3>
 
+              <div className="flex flex-wrap items-center gap-3 mb-5">
+                <button
+                  onClick={customerLocation ? () => { setCustomerLocation(null); setLocationMessage(""); } : enableNearbyFarms}
+                  disabled={locationLoading}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                    isDark ? "bg-emerald-700 text-white hover:bg-emerald-600" : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  <MapPin size={16} />
+                  {locationLoading ? "Finding farms…" : customerLocation ? "Show all products" : "Find nearby farms"}
+                </button>
+                {locationMessage && <span className={`text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>{locationMessage}</span>}
+              </div>
+
               {/* Loading state */}
               {loading && (
                 <div className="text-center py-8">
@@ -1087,7 +1165,7 @@ const CustomerDashboard = () => {
 
               {/* Products grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {dedupedProducts.map((product, idx) => (
+                {productsByDistance.map((product, idx) => (
                   <div
                     key={product.id ?? `${product.cropType}-${idx}`}
                     className={`backdrop-blur-xl border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition transform hover:scale-105 ${
@@ -1142,6 +1220,21 @@ const CustomerDashboard = () => {
                       >
                         {product.name}
                       </h4>
+
+                      {customerLocation && product.latitude != null && product.longitude != null && (
+                        <p className={`flex items-center gap-1 text-xs mb-2 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>
+                          <MapPin size={13} /> {distanceKm(customerLocation.lat, customerLocation.lng, product.latitude, product.longitude).toFixed(1)} km from you
+                        </p>
+                      )}
+
+                      {product.productType !== "FRESH_HARVEST" &&
+                        product.quantity != null &&
+                        Number.isFinite(Number(product.quantity)) &&
+                        product.quantity > 0 && product.quantity <= 5 && (
+                          <p className={`text-xs font-semibold mb-2 ${product.quantity <= 2 ? "text-red-600" : "text-amber-600"}`}>
+                            Only {product.quantity} kg left in stock
+                          </p>
+                        )}
 
                       {product.shortDescription && (
                         <p

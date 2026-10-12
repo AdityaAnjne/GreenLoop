@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import com.greenloop.dto.PublicUserDto;
 import com.greenloop.model.User;
 import com.greenloop.repository.UserRepository;
+import com.greenloop.repository.ProductRepository;
+import com.greenloop.repository.WishlistItemRepository;
+import com.greenloop.model.WishlistItem;
 import com.greenloop.security.JwtUtil;
 
 import java.util.Map;
@@ -27,6 +30,12 @@ public class UserController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private WishlistItemRepository wishlistItemRepository;
 
     // Test endpoint
     @GetMapping("/test")
@@ -54,6 +63,44 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Invalid or expired token"));
+        }
+    }
+
+    @GetMapping("/me/wishlist")
+    public ResponseEntity<?> getMyWishlist(@RequestHeader("Authorization") String authHeader) {
+        User customer = authenticatedCustomer(authHeader);
+        if (customer == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Customer account required"));
+        return ResponseEntity.ok(wishlistItemRepository.findByUserIdOrderByCreatedAtDesc(customer.getId())
+                .stream().map(WishlistItem::getProductId).toList());
+    }
+
+    @PostMapping("/me/wishlist/{productId}")
+    public ResponseEntity<?> addToWishlist(@PathVariable Long productId, @RequestHeader("Authorization") String authHeader) {
+        User customer = authenticatedCustomer(authHeader);
+        if (customer == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Customer account required"));
+        if (!productRepository.existsById(productId)) return ResponseEntity.notFound().build();
+        if (wishlistItemRepository.findByUserIdAndProductId(customer.getId(), productId).isEmpty()) {
+            wishlistItemRepository.save(new WishlistItem(customer.getId(), productId));
+        }
+        return ResponseEntity.ok(Map.of("productId", productId, "saved", true));
+    }
+
+    @DeleteMapping("/me/wishlist/{productId}")
+    public ResponseEntity<?> removeFromWishlist(@PathVariable Long productId, @RequestHeader("Authorization") String authHeader) {
+        User customer = authenticatedCustomer(authHeader);
+        if (customer == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Customer account required"));
+        wishlistItemRepository.findByUserIdAndProductId(customer.getId(), productId)
+                .ifPresent(wishlistItemRepository::delete);
+        return ResponseEntity.noContent().build();
+    }
+
+    private User authenticatedCustomer(String authHeader) {
+        try {
+            String email = jwtUtil.extractEmail(authHeader.substring(7));
+            User user = userRepository.findByEmail(email).orElse(null);
+            return user != null && "customer".equalsIgnoreCase(user.getRole()) ? user : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 

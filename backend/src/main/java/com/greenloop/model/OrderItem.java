@@ -74,6 +74,11 @@ public class OrderItem {
     @Column(name = "distributor_id", nullable = true)
     private Long distributorId;
 
+    /** Product fulfilment promise captured at checkout, even if listing changes later. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_type_at_purchase", nullable = false, length = 20)
+    private ProductType productTypeAtPurchase = ProductType.STORED_STOCK;
+
     // ORDER ITEM DATA
 
     /**
@@ -186,6 +191,14 @@ public class OrderItem {
 
     public void setDistributorId(Long distributorId) {
         this.distributorId = distributorId;
+    }
+
+    public ProductType getProductTypeAtPurchase() {
+        return productTypeAtPurchase;
+    }
+
+    public void setProductTypeAtPurchase(ProductType productTypeAtPurchase) {
+        this.productTypeAtPurchase = productTypeAtPurchase;
     }
 
     public Integer getQuantity() {

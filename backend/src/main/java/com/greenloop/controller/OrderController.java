@@ -384,14 +384,39 @@ public class OrderController {
         Double latitude = item.getProduct() != null ? item.getProduct().getLatitude() : null;
         Double longitude = item.getProduct() != null ? item.getProduct().getLongitude() : null;
         String productName = item.getProduct() != null ? item.getProduct().getCropType() : null;
+        String productType = item.getProductTypeAtPurchase() != null
+                ? item.getProductTypeAtPurchase().toString() : null;
 
         List<TraceEventResponse> timeline = events.stream()
                 .sorted((a, b) -> a.getOccurredAt().compareTo(b.getOccurredAt()))
-                .map(e -> new TraceEventResponse(e.getStatus().toString(), e.getNote(), e.getOccurredAt()))
+                .map(e -> new TraceEventResponse(e.getStatus().toString(), e.getNote(), e.getOccurredAt(), e.getLatitude(), e.getLongitude()))
                 .collect(Collectors.toList());
 
-        return new ItemTraceResponse(item.getId(), productName, farmerName, latitude, longitude,
+        return new ItemTraceResponse(item.getId(), productName, productType, farmerName, latitude, longitude,
                 item.getStatus() != null ? item.getStatus().toString() : null, timeline);
+    }
+
+    @PostMapping("/{id}/location")
+    public ResponseEntity<?> shareDeliveryLocation(@PathVariable Long id,
+            @RequestBody Map<String, Double> body,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            String role = jwtUtil.extractRole(token);
+            if (!"distributor".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse("Only distributors can share delivery locations"));
+            }
+            User distributor = userRepository.findByEmail(jwtUtil.extractEmail(token))
+                    .orElseThrow(() -> new Exception("User not found"));
+            orderService.recordDeliveryLocation(id, distributor.getId(), body.get("latitude"), body.get("longitude"));
+            return ResponseEntity.ok(Map.of("message", "Delivery location shared"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Order not found"));
+        }
     }
 
     @PutMapping("/{id}/confirm")
@@ -431,6 +456,31 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to confirm order: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/harvest")
+    public ResponseEntity<?> harvestOrder(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
+            if (!"farmer".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("Only farmers can confirm harvest completion"));
+            }
+            User farmer = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new Exception("User not found"));
+            Order order = orderService.harvestOrder(id, farmer.getId());
+            return ResponseEntity.ok(new OrderResponse(order, null, null, farmer.getId()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Order not found"));
         }
     }
 
@@ -675,6 +725,7 @@ public class OrderController {
         public Long id;
         public Long productId;
         public String productName;
+        public String productTypeAtPurchase;
         public Integer quantity;
         public BigDecimal priceAtPurchase;
         public Long farmerId;
@@ -690,6 +741,8 @@ public class OrderController {
             this.id = item.getId();
             this.productId = item.getProduct() != null ? item.getProduct().getId() : null;
             this.productName = item.getProduct() != null ? item.getProduct().getCropType() : null;
+            this.productTypeAtPurchase = item.getProductTypeAtPurchase() != null
+                    ? item.getProductTypeAtPurchase().toString() : null;
             this.quantity = item.getQuantity();
             this.priceAtPurchase = item.getPriceAtPurchase();
             this.farmerId = item.getFarmerId();
@@ -727,13 +780,15 @@ public class OrderController {
         public Double farmLatitude;
         public Double farmLongitude;
         public String currentStatus;
+        public String productType;
         public List<TraceEventResponse> timeline;
 
-        public ItemTraceResponse(Long orderItemId, String productName, String farmerName,
+        public ItemTraceResponse(Long orderItemId, String productName, String productType, String farmerName,
                 Double farmLatitude, Double farmLongitude, String currentStatus,
                 List<TraceEventResponse> timeline) {
             this.orderItemId = orderItemId;
             this.productName = productName;
+            this.productType = productType;
             this.farmerName = farmerName;
             this.farmLatitude = farmLatitude;
             this.farmLongitude = farmLongitude;
@@ -746,11 +801,15 @@ public class OrderController {
         public String status;
         public String note;
         public LocalDateTime occurredAt;
+        public Double latitude;
+        public Double longitude;
 
-        public TraceEventResponse(String status, String note, LocalDateTime occurredAt) {
+        public TraceEventResponse(String status, String note, LocalDateTime occurredAt, Double latitude, Double longitude) {
             this.status = status;
             this.note = note;
             this.occurredAt = occurredAt;
+            this.latitude = latitude;
+            this.longitude = longitude;
         }
     }
 }

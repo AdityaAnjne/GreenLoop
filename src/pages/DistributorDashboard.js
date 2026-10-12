@@ -7,6 +7,7 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  MapPin,
 } from "lucide-react";
 import "../styles/DistributorDashboard.css";
 import { getAuthHeaders, isTokenValid } from "../utils/tokenUtils";
@@ -95,6 +96,33 @@ const DistributorDashboard = () => {
     await updateOrderStatus(orderId, "DELIVERED");
   };
 
+  const shareDeliveryLocation = (orderId) => {
+    if (!navigator.geolocation) {
+      alert("Location sharing is not supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/location`, {
+          method: "POST",
+          headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
+        });
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.message || "Location update failed");
+        }
+        alert("Delivery location shared with the customer.");
+      } catch (error) {
+        alert(error.message || "Could not share the delivery location.");
+      }
+    }, () => alert("Location permission was unavailable. Please allow location access and retry."), {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 30000,
+    });
+  };
+
   const stats = [
     {
       label: "Total Orders",
@@ -104,7 +132,7 @@ const DistributorDashboard = () => {
     },
     {
       label: "Pending",
-      value: orders.filter((o) => o.status === "CONFIRMED").length,
+      value: orders.filter((o) => o.status === "CONFIRMED" || o.status === "HARVESTED").length,
       icon: Clock,
       color: "from-harvest-400 to-harvest-600",
     },
@@ -127,6 +155,7 @@ const DistributorDashboard = () => {
       case "PLACED":
         return <Clock size={16} className="inline mr-1" />;
       case "CONFIRMED":
+      case "HARVESTED":
       case "PACKED":
         return <Package size={16} className="inline mr-1" />;
       case "SHIPPED":
@@ -247,7 +276,9 @@ const DistributorDashboard = () => {
                           </span>
                         </td>
                         <td>
-                          {order.status === "CONFIRMED" && (
+                          {(order.items || []).some((item) =>
+                            (item.status === "CONFIRMED" && item.productTypeAtPurchase === "STORED_STOCK") || item.status === "HARVESTED",
+                          ) && (
                             <button
                               onClick={() =>
                                 updateOrderStatus(order.id, "PACKED")
@@ -268,12 +299,14 @@ const DistributorDashboard = () => {
                             </button>
                           )}
                           {order.status === "SHIPPED" && (
-                            <button
-                              onClick={() => handleReceiveOrder(order.id)}
-                              className="action-btn btn-fulfill"
-                            >
-                              Deliver
-                            </button>
+                            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                              <button onClick={() => shareDeliveryLocation(order.id)} className="action-btn btn-process">
+                                <MapPin size={14} className="inline mr-1" /> Share location
+                              </button>
+                              <button onClick={() => handleReceiveOrder(order.id)} className="action-btn btn-fulfill">
+                                Deliver
+                              </button>
+                            </div>
                           )}
                           {order.status === "PLACED" && (
                             <span className="table-muted">

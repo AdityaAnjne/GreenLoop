@@ -137,6 +137,7 @@ public class OrderService {
             item.setQuantity(cartItem.quantity);
             item.setFarmerId(product.getFarmerId());
             item.setRetailerId(product.getRetailerId());
+            item.setProductTypeAtPurchase(product.getProductType());
 
             // CRITICAL: Lock price at time of checkout
             BigDecimal priceAtPurchase = BigDecimal.valueOf(product.getPrice());
@@ -182,7 +183,10 @@ public class OrderService {
         for (OrderItem item : orderItems) {
             item.setOrder(savedOrder);
             orderItemRepository.save(item);
-            recordEvent(item, OrderStatus.PLACED, null, "Order placed");
+            String placedNote = item.getProductTypeAtPurchase() == ProductType.FRESH_HARVEST
+                    ? "Order received — this produce will be harvested for you"
+                    : "Order placed — fulfilled from stored stock";
+            recordEvent(item, OrderStatus.PLACED, null, placedNote);
         }
 
         savedOrder.setItems(orderItems);
@@ -321,6 +325,51 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    /** Farmer confirms that their Fresh Harvest items have been harvested. */
+    @Transactional
+    public Order harvestOrder(Long orderId, Long farmerId) throws Exception {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new Exception("Order not found: " + orderId));
+        List<OrderItem> harvestable = order.getItems().stream()
+                .filter(item -> farmerId.equals(item.getFarmerId()))
+                .filter(item -> item.getProductTypeAtPurchase() == ProductType.FRESH_HARVEST)
+                .filter(item -> item.getStatus() == OrderStatus.CONFIRMED)
+                .collect(Collectors.toList());
+        if (harvestable.isEmpty()) {
+            throw new IllegalStateException("No confirmed Fresh Harvest items are ready for harvest");
+        }
+        for (OrderItem item : harvestable) {
+            item.setStatus(OrderStatus.HARVESTED);
+            orderItemRepository.save(item);
+            recordEvent(item, OrderStatus.HARVESTED, farmerId, "Farmer confirmed harvest complete");
+        }
+        order.recomputeStatus();
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public void recordDeliveryLocation(Long orderId, Long distributorId, Double latitude, Double longitude) throws Exception {
+        if (latitude == null || longitude == null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException("A valid latitude and longitude are required");
+        }
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new Exception("Order not found: " + orderId));
+        boolean assignedAndShipped = order.getItems().stream().anyMatch(item ->
+                distributorId.equals(item.getDistributorId()) && item.getStatus() == OrderStatus.SHIPPED);
+        if (!assignedAndShipped) {
+            throw new SecurityException("Only the assigned distributor can share a location for shipped items");
+        }
+        for (OrderItem item : order.getItems()) {
+            if (distributorId.equals(item.getDistributorId()) && item.getStatus() == OrderStatus.SHIPPED) {
+                OrderItemStatusEvent event = new OrderItemStatusEvent(item.getId(), OrderStatus.SHIPPED,
+                        distributorId, "Delivery location shared");
+                event.setLatitude(latitude);
+                event.setLongitude(longitude);
+                orderItemStatusEventRepository.save(event);
+            }
+        }
+    }
+
     /**
      * Pack order items (CONFIRMED → PACKED) — SCOPED TO ONE DISTRIBUTOR'S ITEMS
      * Only the items a retailer assigned to THIS distributor are advanced.
@@ -339,11 +388,13 @@ public class OrderService {
         }
 
         List<OrderItem> packable = myItems.stream()
-                .filter(item -> item.getStatus() == OrderStatus.CONFIRMED)
+                .filter(item -> (item.getStatus() == OrderStatus.CONFIRMED
+                        && item.getProductTypeAtPurchase() == ProductType.STORED_STOCK)
+                        || item.getStatus() == OrderStatus.HARVESTED)
                 .collect(Collectors.toList());
 
         if (packable.isEmpty()) {
-            throw new IllegalStateException("Only CONFIRMED items can be packed");
+            throw new IllegalStateException("Stored Stock items must be confirmed, and Fresh Harvest items must be harvested before packing");
         }
 
         for (OrderItem item : packable) {

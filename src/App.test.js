@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('shows the GreenLoop sign-in screen when no session is active', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
+  expect(screen.getByText(/sign in to your greenloop account/i)).toBeInTheDocument();
 });

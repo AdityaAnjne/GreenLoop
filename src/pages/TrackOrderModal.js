@@ -5,6 +5,7 @@ import axiosInstance from "../api/axiosInstance";
 const STATUS_LABELS = {
   PLACED: "Order placed",
   CONFIRMED: "Confirmed by retailer",
+  HARVESTED: "Harvested by farmer",
   PACKED: "Packed for shipment",
   SHIPPED: "Out for delivery",
   DELIVERED: "Delivered",
@@ -41,8 +42,10 @@ const TrackOrderModal = ({ orderId, isDark, onClose }) => {
     };
 
     fetchTrace();
+    const refreshTimer = window.setInterval(fetchTrace, 15000);
     return () => {
       cancelled = true;
+      window.clearInterval(refreshTimer);
     };
   }, [orderId]);
 
@@ -69,10 +72,32 @@ const TrackOrderModal = ({ orderId, isDark, onClose }) => {
           ) : !trace || trace.items.length === 0 ? (
             <p className={`text-center py-8 ${subtext}`}>No tracking information available yet.</p>
           ) : (
-            trace.items.map((item) => (
-              <div key={item.orderItemId} className={`border-b ${border} pb-6 last:border-0`}>
+              trace.items.map((item) => (
+                <div key={item.orderItemId} className={`border-b ${border} pb-6 last:border-0`}>
+                {(() => {
+                  const latestDeliveryLocation = [...item.timeline].reverse().find(
+                    (event) => event.latitude != null && event.longitude != null,
+                  );
+                  return latestDeliveryLocation ? (
+                    <a
+                      href={`https://www.google.com/maps?q=${latestDeliveryLocation.latitude},${latestDeliveryLocation.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 mb-3"
+                    >
+                      <MapPin size={16} /> Recent delivery location · {new Date(latestDeliveryLocation.occurredAt).toLocaleString()}
+                    </a>
+                  ) : null;
+                })()}
                 <div className="mb-4">
                   <h3 className="font-semibold text-base">{item.productName || "Product"}</h3>
+                  <span className={`inline-flex mt-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                    item.productType === "FRESH_HARVEST"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}>
+                    {item.productType === "FRESH_HARVEST" ? "🌱 Fresh Harvest · picked for your order" : "📦 Stored Stock"}
+                  </span>
                   {item.farmerName && (
                     <p className={`text-sm ${subtext}`}>Grown by {item.farmerName}</p>
                   )}

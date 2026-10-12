@@ -29,6 +29,8 @@ Buying fresh produce online has three trust problems: you can't judge freshness 
 - Choose a **product type** per listing:
   - **Fresh Harvest** — picked specifically for the order; no fixed stock count, no harvest date (see *Product types* below)
   - **Stored Stock** — the conventional model: a real quantity on hand and a real harvest date, shown to the customer
+- Stored Stock listings show farmers a low-stock warning at 5 kg or less, with an urgent replenishment cue at 2 kg or less
+- Farmer dashboard sales overview shows delivered revenue, fulfilled quantity, active orders, and the top-selling crop
 - Real GPS location captured from the browser when a product is listed (stored as null if permission is denied)
 - **Server-side AI quality gate:** the uploaded photo is analysed by Google Gemini on the backend, not the browser. A product is **not listed at all** if the AI call fails or judges it unfit for sale — and the result can't be forged by a direct API call, since the client never supplies it
 - Assign each product to a retailer
@@ -36,13 +38,17 @@ Buying fresh produce online has three trust problems: you can't judge freshness 
 
 ### Customer
 - Marketplace showing the **farmer's name** on every product, plus AI-derived **freshness %** and a **star rating derived from that freshness**, so the two always agree
+- Optional **Find nearby farms** marketplace sorting uses the customer's browser location and each farm's saved GPS coordinates; distance is calculated locally and the location is not sent to the API
+- Stored Stock products at 5 kg or less show customers the remaining quantity
 - **View Details** panel: farmer name, health benefit, description and shelf life (AI-generated per product at listing time, with a static fallback for older listings)
 - Cart with a per-item quantity stepper — default 1 kg, **maximum 10 kg per item** (enforced in the UI *and* on the server)
 - Checkout with a delivery address (remembered as the default for next time, still editable per order) and payment-method selector
 - **My Orders** auto-refreshes every 15 seconds while open
 - **Track this order** timeline with farm origin and timestamps
+- Farmers confirm when Fresh Harvest orders have actually been picked; distributors can share GPS checkpoints while shipped, and customers can open the latest checkpoint on a map
+- Tracking shows whether each ordered item is Fresh Harvest or Stored Stock. The type is snapshotted at checkout, and Fresh Harvest orders start with a clear note that the produce will be harvested for that order.
 - **Cancel** an order while its items are still `PLACED` or `CONFIRMED` — scoped per item, so one retailer's slice being packed doesn't block cancelling another retailer's still-untouched item in the same order
-- Wishlist (in-session only — see limitations)
+- Wishlist saved to the customer account and retained across refreshes and logins
 
 ### Retailer
 - Sees **only their own items** in any order, even in a multi-retailer checkout
@@ -77,7 +83,7 @@ This is GreenLoop's core differentiator from a conventional quick-commerce app. 
 
 A single order can mix both kinds. Part of the catalog can behave like a conventional warehouse-backed quick-commerce app (good for grains, pulses — things that don't lose quality sitting on a shelf), while another part behaves like a genuine farm-to-order model (good for produce where freshness really matters) — all on one platform, visible to the customer as a clear badge on every product.
 
-**Suggested next step, not yet built:** tie this into the existing order timeline — a Fresh Harvest item's first event could read *"Received — being harvested for you"* instead of a generic "Order placed," making the distinction visible in real time, not just as a static badge.
+Fresh Harvest is visible in the order timeline from checkout, and the farmer can confirm when harvesting is complete. That confirmation becomes an append-only event before the distributor can pack the produce.
 
 ---
 
@@ -115,23 +121,27 @@ Each product's QR code opens `/product/{id}`, which shows origin, the farmer's n
 `order_item_status_events` records one row per status transition, so the timeline is real history rather than just the current status.
 
 ### 6. Schema validated, not auto-altered
-`spring.jpa.hibernate.ddl-auto=validate` — the app refuses to boot if entities and schema drift apart, instead of silently altering a production database. All schema changes are applied by hand, in order, and documented.
+`spring.jpa.hibernate.ddl-auto=validate` — the app refuses to boot if entities and schema drift apart, instead of silently altering a production database. Legacy changes are documented in order; new changes use Flyway migrations.
 
 ---
 
 ## Order lifecycle
 
 ```
-PLACED ──► CONFIRMED ──► PACKED ──► SHIPPED ──► DELIVERED
-  │            │
-  └────────────┴──► CANCELLED   (customer, only before PACKED, scoped per item)
+Stored Stock:  PLACED -> CONFIRMED -> PACKED -> SHIPPED -> DELIVERED
+Fresh Harvest: PLACED -> CONFIRMED -> HARVESTED -> PACKED -> SHIPPED -> DELIVERED
+Cancellation:  PLACED or CONFIRMED -> CANCELLED (per item)
 ```
 
 | Transition | Done by | Scope |
 |---|---|---|
 | PLACED → CONFIRMED | Retailer (picks a distributor) | Only that retailer's items |
-| CONFIRMED → PACKED → SHIPPED → DELIVERED | Distributor | Only items assigned to them |
+| CONFIRMED → PACKED → SHIPPED → DELIVERED | Distributor | Stored Stock items assigned to them |
+| CONFIRMED → HARVESTED | Farmer | Their Fresh Harvest items only |
+| HARVESTED → PACKED → SHIPPED → DELIVERED | Distributor | Fresh Harvest items assigned to them |
 | → CANCELLED | Customer / admin | Only items still `PLACED` or `CONFIRMED` |
+
+Fresh Harvest orders now use an explicit farmer-confirmed `HARVESTED` status between retailer confirmation and distributor packing. Stored Stock continues directly from confirmation to packing. Shipped orders can carry distributor-shared GPS checkpoints; customers can open the latest point from order tracking.
 
 ---
 
@@ -178,7 +188,7 @@ GreenLoop/
 ```sql
 CREATE DATABASE greenloop_auth;
 ```
-The backend validates the schema on startup. Apply the schema described in `backend/docs/database-migration-history.sql` (a documented, ordered record of every schema change, including the reasoning behind each) to a fresh database before first run.
+The backend validates the schema on startup. Apply the legacy schema changes through step 12 in `backend/docs/database-migration-history.sql` before first run. Flyway then baselines that non-empty schema at version 12 and runs any newer migrations automatically.
 
 ### 2. Backend configuration
 
@@ -234,13 +244,13 @@ REACT_APP_API_BASE_URL=http://localhost:8080
 | API | Render (Docker) | Uses `backend/Dockerfile`; set all backend env vars in the service's Environment tab |
 | Database | Aiven MySQL | SSL required; use the service URI as `DB_URL` |
 
-**Deployment order matters:** apply any schema change to the production database **before** deploying the code that expects it. Because of `ddl-auto=validate`, deploying code first will crash-loop the API on startup.
+**Deployment order matters:** apply the documented legacy schema changes through step 12 before deploying this version. Flyway applies versioned migrations such as V13 during startup; Hibernate then validates the schema. Back up production before the first Flyway baseline/deploy.
 
 ---
 
 ## Database
 
-Eight tables:
+Nine tables:
 
 | Table | Purpose |
 |---|---|
@@ -248,12 +258,13 @@ Eight tables:
 | `products` | Listings, including product type, AI quality score, freshness %, analysis and AI-generated details |
 | `orders` | Order header: customer, total, derived status, delivery address/coordinates, payment method |
 | `order_items` | Per-item retailer, farmer, **status, distributor** |
-| `order_item_status_events` | Append-only status history behind the timeline |
+| `order_item_status_events` | Append-only status history and optional distributor GPS checkpoints |
 | `farmer_retailers` | Farmer ↔ retailer assignments |
 | `retailer_distributors` | Retailer ↔ distributor history |
 | `password_reset_tokens` | Password reset support |
+| `customer_wishlist` | Customer-saved product IDs, unique per customer and product |
 
-Schema changes were applied by hand and are recorded, in order and with the reasoning behind each, in `backend/docs/database-migration-history.sql`.
+Legacy schema changes through step 12 are recorded in `backend/docs/database-migration-history.sql`. Flyway adopts an existing non-empty schema at version 12 and applies new migrations from `backend/src/main/resources/db/migration/` (currently V13). Apply documented legacy steps before deploying this version; `ddl-auto=validate` checks the final entity/schema match at startup.
 
 ---
 
@@ -261,10 +272,10 @@ Schema changes were applied by hand and are recorded, in order and with the reas
 
 | Area | Endpoints |
 |---|---|
-| Users | `POST /api/users/register`, `POST /api/users/login`, `GET /api/users/me`, `GET /api/users/all` (admin, password-free) |
+| Users | `POST /api/users/register`, `POST /api/users/login`, `GET /api/users/me`, `GET /api/users/me/wishlist`, `POST` / `DELETE /api/users/me/wishlist/{productId}`, `GET /api/users/all` (admin, password-free) |
 | Products | `POST /api/products/add` (multipart; runs the AI gate server-side), `GET /api/products/customer/products`, `GET /api/products/farmer/me`, `GET /api/products/{id}`, `PUT` / `DELETE /api/products/{id}` |
 | Orders | `POST /api/orders`, `GET /api/orders/{customer\|retailer\|distributor\|farmer}`, `GET /api/orders/{id}`, `GET /api/orders/{id}/trace` |
-| Fulfilment | `PUT /api/orders/{id}/confirm`, `/pack`, `/ship`, `/deliver`, `/cancel` |
+| Fulfilment | `PUT /api/orders/{id}/confirm`, `/harvest`, `/pack`, `/ship`, `/deliver`, `/cancel`; `POST /api/orders/{id}/location` |
 
 Protected endpoints expect `Authorization: Bearer <jwt>`.
 
@@ -274,22 +285,18 @@ Protected endpoints expect `Authorization: Bearer <jwt>`.
 
 - **Payment:** only Cash on Delivery is functional. UPI / Card / Wallet are shown as "Coming soon".
 - **AI gate is strict by design:** if Gemini is unavailable, quota-limited or returns an error, a farmer **cannot list a product** until it recovers. The backend retries transient `503` errors once; free-tier quota and model availability are outside the app's control.
-- **Wishlist** lives in browser memory only and is lost on refresh or logout.
-- **No live delivery map** — the timeline shows status history, not a moving location.
-- **No automated test suite** yet.
+- Wishlist items for products that are no longer available are not shown in the customer dashboard.
+- **Delivery location is shared manually** — the distributor can post a GPS checkpoint while an order is shipped; continuous background tracking is not enabled.
+- Focused backend tests currently cover order status aggregation; the broader test suite remains to be built.
 - **Hosting:** free-tier cold starts on the API; free-tier Gemini limits.
 
 ---
 
 ## Roadmap
 
-- Surface the Fresh Harvest / Stored Stock distinction in the order timeline itself (see *Product types* above)
-- Live delivery tracking (delivery address and coordinates are already captured)
-- Real payment gateway (e.g. Razorpay)
-- Persist the wishlist server-side
-- Map-based farm discovery using the stored coordinates
-- Farmer / admin analytics dashboard
-- Versioned migrations (Flyway) and automated tests
+- Configure and verify a payment gateway with merchant credentials before enabling online payments
+- Add continuous distributor location streaming if background tracking and its privacy/retention policy are defined
+- Expand the backend unit test suite beyond order status aggregation
 
 ---
 

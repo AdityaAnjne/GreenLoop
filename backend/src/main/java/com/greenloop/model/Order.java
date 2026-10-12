@@ -208,14 +208,16 @@ public class Order {
         switch (status) {
             case PLACED:
                 return 0;
-            case CONFIRMED:
-                return 1;
-            case PACKED:
-                return 2;
-            case SHIPPED:
-                return 3;
-            case DELIVERED:
-                return 4;
+              case CONFIRMED:
+                  return 1;
+              case HARVESTED:
+                  return 2;
+              case PACKED:
+                  return 3;
+              case SHIPPED:
+                  return 4;
+              case DELIVERED:
+                  return 5;
             default:
                 return 5; // CANCELLED sorts last, but is filtered out above
         }
