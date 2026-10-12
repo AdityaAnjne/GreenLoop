@@ -64,7 +64,7 @@ public class OrderItem {
     // PER-RETAILER FULFILLMENT STATE
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private OrderStatus status = OrderStatus.PLACED;
 
     /**
