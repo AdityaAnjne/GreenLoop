@@ -279,6 +279,10 @@ export const updateProductInBackend = async (productId, productData) => {
     // NEW: Retailer is editable after creation too
     if (productData.retailerId)
       formData.append("retailerId", productData.retailerId);
+    if (productData.latitude != null && productData.longitude != null) {
+      formData.append("latitude", productData.latitude);
+      formData.append("longitude", productData.longitude);
+    }
     if (productData.imageFile) formData.append("image", productData.imageFile);
 
     const response = await PRODUCTS_API.put(`/${productId}`, formData, {

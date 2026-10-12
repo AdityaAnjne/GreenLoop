@@ -130,6 +130,8 @@ public class ProductController {
             @RequestParam(value = "quantity", required = false) Integer quantity,
             @RequestParam(value = "retailerId", required = false) String retailerIdParam,
             @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "latitude", required = false) Double latitude,
+            @RequestParam(value = "longitude", required = false) Double longitude,
             @RequestParam("productType") String productTypeParam,
             @RequestHeader("Authorization") String authHeader) {
         try {
@@ -158,6 +160,12 @@ public class ProductController {
                 finalHarvestDate = harvestDate;
             }
 
+            if ((latitude == null) != (longitude == null)
+                    || (latitude != null && (latitude < -90 || latitude > 90
+                            || longitude < -180 || longitude > 180))) {
+                return ResponseEntity.badRequest().body(Map.of("message", "A valid latitude and longitude pair is required"));
+            }
+
             Long retailerId = null;
             if (retailerIdParam != null && !retailerIdParam.isBlank() && !"undefined".equals(retailerIdParam)) {
                 try {
@@ -180,7 +188,7 @@ public class ProductController {
                     : null;
             Product updatedProduct = productService.updateProductForFarmer(
                     id, farmer.getId(), cropType, soilType, pesticides, finalHarvestDate, imageUrl,
-                    price, finalQuantity, retailerId, productType);
+                    price, finalQuantity, retailerId, productType, latitude, longitude);
             return ResponseEntity.ok(updatedProduct);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));

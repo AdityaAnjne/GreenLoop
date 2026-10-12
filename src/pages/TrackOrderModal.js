@@ -78,7 +78,7 @@ const TrackOrderModal = ({ orderId, isDark, onClose }) => {
                   const latestDeliveryLocation = [...item.timeline].reverse().find(
                     (event) => event.latitude != null && event.longitude != null,
                   );
-                  return latestDeliveryLocation ? (
+                  return latestDeliveryLocation && !["DELIVERED", "CANCELLED"].includes(item.status) ? (
                     <a
                       href={`https://www.google.com/maps?q=${latestDeliveryLocation.latitude},${latestDeliveryLocation.longitude}`}
                       target="_blank"

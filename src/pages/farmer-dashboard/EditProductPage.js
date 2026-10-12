@@ -23,6 +23,8 @@ function EditProductPage({ products, onUpdateProduct }) {
   });
 
   const [imagePreview, setImagePreview] = useState("");
+  const [farmLocation, setFarmLocation] = useState(null);
+  const [locationMessage, setLocationMessage] = useState("");
 
   // Every retailer account on the platform — farmer can reassign this product to any of them
   const [availableRetailers, setAvailableRetailers] = useState([]);
@@ -84,6 +86,8 @@ function EditProductPage({ products, onUpdateProduct }) {
     try {
       await onUpdateProduct(Number(id), {
         ...form,
+        latitude: farmLocation?.latitude,
+        longitude: farmLocation?.longitude,
         harvestDate: form.productType === "STORED_STOCK" ? form.harvestDate : null,
         quantity: form.productType === "STORED_STOCK" ? form.quantity : null,
       });
@@ -93,6 +97,22 @@ function EditProductPage({ products, onUpdateProduct }) {
       console.error("Failed to update product:", err);
       alert(err.message || "Could not save changes. Your product was not updated.");
     }
+  };
+
+  const captureFarmLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage("Location is not available in this browser.");
+      return;
+    }
+    setLocationMessage("Getting farm location…");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setFarmLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationMessage("Farm location captured. Save changes to update nearby sorting.");
+      },
+      () => setLocationMessage("Location access failed. Allow location access and try again."),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
   };
 
   if (!productToEdit)
@@ -108,6 +128,20 @@ function EditProductPage({ products, onUpdateProduct }) {
 
         <div className="form-card">
           <form onSubmit={handleSubmit} className="form-section">
+            <div className="form-group">
+              <label>Farm location for nearby sorting</label>
+              <p className="form-help">
+                {farmLocation
+                  ? "A new location is ready to save."
+                  : productToEdit.latitude != null && productToEdit.longitude != null
+                    ? "A farm location is already saved. Capture again to refresh it."
+                    : "No farm location is saved for this listing yet."}
+              </p>
+              <button type="button" className="btn-cancel" onClick={captureFarmLocation}>
+                Capture farm location
+              </button>
+              {locationMessage && <p className="form-help" role="status">{locationMessage}</p>}
+            </div>
             {/* Retailer selection — editable after creation */}
             <div className="form-row">
               <div className="form-group">

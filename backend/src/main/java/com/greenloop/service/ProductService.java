@@ -235,7 +235,8 @@ public class ProductService {
     @Transactional
     public Product updateProductForFarmer(Long id, Long farmerId, String cropType,
             String soilType, String pesticides, String harvestDate, String imageUrl,
-            Double price, Integer quantity, Long retailerId, com.greenloop.model.ProductType productType) {
+            Double price, Integer quantity, Long retailerId, com.greenloop.model.ProductType productType,
+            Double latitude, Double longitude) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
@@ -252,6 +253,10 @@ public class ProductService {
         product.setHarvestDate(harvestDate);
         product.setPrice(price);
         product.setQuantity(quantity);
+        if (latitude != null && longitude != null) {
+            product.setLatitude(latitude);
+            product.setLongitude(longitude);
+        }
         if (imageUrl != null && !imageUrl.isBlank()) {
             product.setImageUrl(imageUrl);
         }

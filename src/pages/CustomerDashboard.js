@@ -598,14 +598,25 @@ const CustomerDashboard = () => {
     return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  const getFarmCoordinates = (product) => {
+    const latitude = Number(product.latitude);
+    const longitude = Number(product.longitude);
+    return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+      && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
+      && product.latitude !== null && product.latitude !== ""
+      && product.longitude !== null && product.longitude !== ""
+      ? { latitude, longitude }
+      : null;
+  };
+
   const productsByDistance = customerLocation
     ? [...dedupedProducts].sort((a, b) => {
-        const aHasLocation = a.latitude != null && a.longitude != null;
-        const bHasLocation = b.latitude != null && b.longitude != null;
-        if (aHasLocation !== bHasLocation) return aHasLocation ? -1 : 1;
-        if (!aHasLocation) return 0;
-        return distanceKm(customerLocation.lat, customerLocation.lng, a.latitude, a.longitude) -
-          distanceKm(customerLocation.lat, customerLocation.lng, b.latitude, b.longitude);
+        const aLocation = getFarmCoordinates(a);
+        const bLocation = getFarmCoordinates(b);
+        if (Boolean(aLocation) !== Boolean(bLocation)) return aLocation ? -1 : 1;
+        if (!aLocation) return 0;
+        return distanceKm(customerLocation.lat, customerLocation.lng, aLocation.latitude, aLocation.longitude) -
+          distanceKm(customerLocation.lat, customerLocation.lng, bLocation.latitude, bLocation.longitude);
       })
     : dedupedProducts;
 

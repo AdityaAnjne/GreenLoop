@@ -387,9 +387,13 @@ public class OrderController {
         String productType = item.getProductTypeAtPurchase() != null
                 ? item.getProductTypeAtPurchase().toString() : null;
 
+        boolean locationSharingActive = item.getStatus() != OrderStatus.DELIVERED
+                && item.getStatus() != OrderStatus.CANCELLED;
         List<TraceEventResponse> timeline = events.stream()
                 .sorted((a, b) -> a.getOccurredAt().compareTo(b.getOccurredAt()))
-                .map(e -> new TraceEventResponse(e.getStatus().toString(), e.getNote(), e.getOccurredAt(), e.getLatitude(), e.getLongitude()))
+                .map(e -> new TraceEventResponse(e.getStatus().toString(), e.getNote(), e.getOccurredAt(),
+                        locationSharingActive ? e.getLatitude() : null,
+                        locationSharingActive ? e.getLongitude() : null))
                 .collect(Collectors.toList());
 
         return new ItemTraceResponse(item.getId(), productName, productType, farmerName, latitude, longitude,
