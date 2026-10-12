@@ -329,7 +329,7 @@ public class OrderService {
     @Transactional
     public Order harvestOrder(Long orderId, Long farmerId) throws Exception {
         Order order = orderRepository.findByIdWithItems(orderId)
-                .orElseThrow(() -> new Exception("Order not found: " + orderId));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Order not found: " + orderId));
         List<OrderItem> harvestable = order.getItems().stream()
                 .filter(item -> farmerId.equals(item.getFarmerId()))
                 .filter(item -> item.getProductTypeAtPurchase() == ProductType.FRESH_HARVEST)

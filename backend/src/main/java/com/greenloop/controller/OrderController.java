@@ -483,8 +483,13 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(e.getMessage()));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Order not found"));
+            System.err.println("[OrderController] Failed to confirm harvest for order " + id);
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to confirm harvest: " + e.getMessage()));
         }
     }
 
