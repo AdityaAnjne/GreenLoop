@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 
 // Theme
@@ -37,6 +38,17 @@ import EditProductPage from "./pages/farmer-dashboard/EditProductPage";
 import PrivateRoute from "./components/PrivateRoute";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
+
+const NavbarOffset = ({ children }) => {
+  const { pathname } = useLocation();
+  const navbarHidden = ["/login", "/register"].includes(pathname);
+
+  return (
+    <div style={{ paddingTop: navbarHidden ? 0 : "64px" }}>
+      {children}
+    </div>
+  );
+};
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -100,7 +112,7 @@ function App() {
     <ThemeProvider>
       <Router>
         <Navbar user={user} setUser={setUser} />
-        <div style={{ paddingTop: "64px" }}>
+        <NavbarOffset>
           <Routes>
             {/* Default Route → Redirect to Login */}
             <Route path="/" element={<Navigate to="/login" />} />
@@ -186,7 +198,7 @@ function App() {
             {/* Catch-all route */}
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
-        </div>
+        </NavbarOffset>
         <Footer />
       </Router>
     </ThemeProvider>
